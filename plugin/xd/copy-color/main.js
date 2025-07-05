@@ -3,6 +3,7 @@
 
 const assets = require('assets')
 const clipboard = require("clipboard")
+const { showAlert, alphaToPercentage } = require("./helper")
 
 function copyAllAssetColors() {
   const assetAllColors = assets.colors.get()
@@ -65,33 +66,10 @@ function copyAllAssetColors() {
   showAlert('顏色已成功複製到剪貼簿！')
 }
 
-function alphaToPercentage(alpha) {
-  return Math.round((alpha / 255) * 100)
-}
-
-function percentageToAlpha(percentage) {
-  return Math.round((percentage / 100) * 255)
-}
-
 function toUnoColorValue (color) {
   const hexColor = color.toHex(true)
   if (!color.a || color.a === 255) return `'${hexColor}'`
   return `rgba('${hexColor}', ${alphaToPercentage(color.a) / 100})`
-}
-
-function showAlert(message) {
-  const dialog = document.createElement('dialog');
-  dialog.innerHTML = `
-    <form method="dialog" style="width: 400px; padding: 20px;">
-      <h1>通知</h1>
-      <p>${message}</p>
-      <footer>
-          <button uxp-variant="cta" type="submit">確定</button>
-      </footer>
-    </form>
-  `
-  document.body.appendChild(dialog)
-  dialog.showModal().then(() => dialog.remove())
 }
 
 module.exports = {
