@@ -5,24 +5,31 @@
   "private": true,
   "packageManager": "pnpm@10.12.3",
   "scripts": {
+    "script:sync-xd-plugin": "tsx ./script/sync-xd-plugin.ts --watch --dir",
     "build:all": "pnpm -r --parallel build",
     "dev:@plugin-xd/copy-color": "pnpm --filter @plugin-xd/copy-color dev",
     "build:@plugin-xd/copy-color": "pnpm --filter @plugin-xd/copy-color build"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/twjw/work-tools-app.git"
+    "url": "git+https://github.com/frank-wcw/work-tools-app.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/twjw/work-tools-app/issues"
+    "url": "https://github.com/frank-wcw/work-tools-app/issues"
   },
-  "homepage": "https://github.com/twjw/work-tools-app#readme",
+  "homepage": "https://github.com/frank-wcw/work-tools-app#readme",
   "description": "",
   "devDependencies": {
+    "@types/fs-extra": "catalog:",
     "@types/node": "catalog:",
-    "unbuild": "catalog:"
+    "@types/yargs": "catalog:",
+    "chokidar": "catalog:",
+    "fs-extra": "catalog:",
+    "tsx": "catalog:",
+    "unbuild": "catalog:",
+    "yargs": "catalog:"
   }
 }
