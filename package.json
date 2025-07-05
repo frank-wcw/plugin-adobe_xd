@@ -1,0 +1,28 @@
+{
+  "name": "@work-tools-app/monorepo",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.12.3",
+  "scripts": {
+    "build:all": "pnpm -r --parallel build",
+    "dev:@plugin-xd/copy-color": "pnpm --filter @plugin-xd/copy-color dev",
+    "build:@plugin-xd/copy-color": "pnpm --filter @plugin-xd/copy-color build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/twjw/work-tools-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/twjw/work-tools-app/issues"
+  },
+  "homepage": "https://github.com/twjw/work-tools-app#readme",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "unbuild": "catalog:"
+  }
+}

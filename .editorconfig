@@ -1,0 +1,13 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# 頂層配置文件標誌
+root = true
+
+# 所有文件通用配置
+[*]
+# 設定字元編碼為 UTF-8
+charset = utf-8
+# 縮排使用空格
+indent_style = space
+# 縮排大小為 2
+indent_size = 2
