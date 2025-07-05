@@ -5,10 +5,8 @@
   "private": true,
   "packageManager": "pnpm@10.12.3",
   "scripts": {
-    "script:sync-xd-plugin": "tsx ./script/sync-xd-plugin.ts --watch --dir",
     "build:all": "pnpm -r --parallel build",
-    "dev:@plugin-xd/copy-color": "pnpm --filter @plugin-xd/copy-color dev",
-    "build:@plugin-xd/copy-color": "pnpm --filter @plugin-xd/copy-color build"
+    "script:sync-xd-plugin": "tsx ./script/sync-xd-plugin.ts --watch --proj copy-color --dir"
   },
   "repository": {
     "type": "git",

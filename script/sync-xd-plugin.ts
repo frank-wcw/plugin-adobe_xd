@@ -6,9 +6,6 @@ import fse from 'fs-extra'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const cwd = path.join(__dirname, '..')
-const projectName = 'copy-color'
-const relativeProjectPath = `plugin/xd/${projectName}`
-const absoluteProjectPath = path.join(cwd, relativeProjectPath)
 
 const argv = yargs(process.argv.slice(2))
   .option({
@@ -19,6 +16,12 @@ const argv = yargs(process.argv.slice(2))
       demandOption: true,
       coerce: arg => arg.replace(/\\/g, '/')
     },
+    proj: {
+      alias: 'p',
+      type: 'string',
+      describe: 'xd plugin 專案名稱',
+      demandOption: true,
+    },
     watch: {
       alias: 'w',
       type: 'boolean',
@@ -28,7 +31,10 @@ const argv = yargs(process.argv.slice(2))
   .requiresArg('dir')
   .parseSync()
 
-const { dir, watch: isWatch } = argv
+const { dir, proj: projectName, watch: isWatch } = argv
+
+const relativeProjectPath = `plugin/xd/${projectName}`
+const absoluteProjectPath = path.join(cwd, relativeProjectPath)
 const xdPluginDir = path.join(dir, projectName)
 
 run()
