@@ -3,7 +3,7 @@
 
 const assets = require('assets')
 const clipboard = require("clipboard")
-const { showAlert, alphaToPercentage } = require("./helper")
+const { showAlert, alphaToPercentage, sortColorNameList } = require("./helper/v1")
 
 function copyAllAssetColors() {
   const assetAllColors = assets.colors.get()
@@ -38,28 +38,7 @@ function copyAllAssetColors() {
     return
   }
 
-  const colorText = copyTexts.sort((a, b) => {
-    // 提取編號部分，框出前面的 "xxx號色"
-    const regex = /^([A-z]+)(\d+):/;
-
-    const matchA = a.match(regex);
-    const matchB = b.match(regex);
-
-    if (!matchA || !matchB) {
-      return a.localeCompare(b); // Fallback to normal string compare
-    }
-
-    const [_, prefixA, numA] = matchA; // 分為前綴與數字
-    const [__, prefixB, numB] = matchB;
-
-    if (prefixA !== prefixB) {
-      // 比較字母前綴
-      return prefixA.localeCompare(prefixB);
-    }
-
-    // 比較數字部分
-    return parseInt(numA, 10) - parseInt(numB, 10);
-  }).join('\n  ')
+  const colorText = sortColorNameList(copyTexts).join('\n  ')
 
   clipboard.copyText(`{
   ${colorText}

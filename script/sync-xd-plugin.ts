@@ -33,19 +33,26 @@ const argv = yargs(process.argv.slice(2))
 
 const { dir, proj: projectName, watch: isWatch } = argv
 
-const relativeProjectPath = `plugin/xd/${projectName}`
-const absoluteProjectPath = path.join(cwd, relativeProjectPath)
+const relativePluginXdPath = 'plugin/xd'
+const helperName = 'fwxp-helper'
+const relativeProjectPath = `${relativePluginXdPath}/${projectName}`
+const relativeHelperPath = `${relativePluginXdPath}/${helperName}`
+const pluginXdPath = path.join(cwd, relativePluginXdPath)
+const projectPath = path.join(cwd, relativeProjectPath)
 const xdPluginDir = path.join(dir, projectName)
 
 run()
 
 async function run () {
   await copyProjectToXdPluginDir()
-  console.log(`已將插件檔(${projectName})推至您的插件目錄 ${dir}`)
+  console.log(`已將插件檔(${projectName})與 helper(${helperName}) 推至您的插件目錄 ${dir}`)
 
   if (isWatch) {
-    const watcher = chokidar.watch('.', {
-      cwd: absoluteProjectPath,
+    const watcher = chokidar.watch([
+      projectName,
+      helperName,
+    ], {
+      cwd: pluginXdPath,
       persistent: true,
       ignoreInitial: true,
       awaitWriteFinish: {    // 添加此設定以確保檔案寫入完成
@@ -58,30 +65,52 @@ async function run () {
 
     watcher
       .on('add', (relativeFilepath) => {
-        console.log(`[add file] and copy "${relativeFilepath}" to plugin directory`)
+        console.log(`[add file] and copy "${relativeFilepath}" to goal directory`)
         copyFileToXdPluginDir(relativeFilepath)
       })
       .on('change', (relativeFilepath) => {
-        console.log(`[change file] and copy "${relativeFilepath}" to plugin directory`)
+        console.log(`[change file] and copy "${relativeFilepath}" to goal directory`)
         copyFileToXdPluginDir(relativeFilepath)
       })
   }
 }
 
 function copyProjectToXdPluginDir () {
-  return fse.copy(absoluteProjectPath, xdPluginDir, {
-    overwrite: true,
-    errorOnExist: false,
-  })
-}
-
-function copyFileToXdPluginDir (relativeFilepath: string) {
-  return fse.copy(
-    path.join(absoluteProjectPath, relativeFilepath),
-    path.join(xdPluginDir, relativeFilepath),
-    {
+  return Promise.all([
+    fse.copy(projectPath, xdPluginDir, {
       overwrite: true,
       errorOnExist: false,
-    }
-  )
+    }),
+    fse.copy(relativeHelperPath, path.join(relativeProjectPath, 'helper'), {
+      overwrite: true,
+      errorOnExist: false,
+    }),
+  ])
+}
+
+async function copyFileToXdPluginDir (relativeFilepath: string) {
+  if (relativeFilepath.startsWith(helperName)) {
+    const noHelperNameRelativeFilepath = relativeFilepath.substring(helperName.length + 1)
+    const pluginProjectPathList = (await fse.readdir(pluginXdPath)).filter(e => e !== helperName)
+
+    return Promise.all(
+      pluginProjectPathList.map(e => fse.copy(
+        path.join(pluginXdPath, relativeFilepath),
+        path.join(pluginXdPath, e, 'helper', noHelperNameRelativeFilepath),
+        {
+          overwrite: true,
+          errorOnExist: false,
+        }
+      ))
+    )
+  } else {
+    return fse.copy(
+      path.join(pluginXdPath, relativeFilepath),
+      path.join(dir, relativeFilepath),
+      {
+        overwrite: true,
+        errorOnExist: false,
+      }
+    )
+  }
 }
