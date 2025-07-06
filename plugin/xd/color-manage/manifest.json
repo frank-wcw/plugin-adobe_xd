@@ -12,18 +12,28 @@
   },
   "uiEntryPoints": [
     {
+      "type": "panel",
+      "label": "群組配置 (建置中)",
+      "panelId": "panelConfig"
+    },
+    {
       "type": "menu",
-      "label": "複製 (COPY)",
+      "label": "Copy to Uno color object",
       "commandId": "copyAssetsColors"
     },
     {
       "type": "menu",
-      "label": "導入 (IMPORT)",
+      "label": "導入",
       "commandId": "importAssetsColors"
     },
     {
       "type": "menu",
-      "label": "匯出 (EXPORT)",
+      "label": "匯出",
+      "commandId": "exportAssetsColors"
+    },
+    {
+      "type": "menu",
+      "label": "繪製 (建置中)",
       "commandId": "exportAssetsColors"
     }
   ]

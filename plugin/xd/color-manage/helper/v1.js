@@ -9,7 +9,7 @@ function percentageToAlpha(percentage) {
 function showAlert(message) {
   const dialog = document.createElement('dialog')
   dialog.innerHTML = `
-    <form method="dialog" style="width: 400px padding: 20px">
+    <form method="dialog" style="width: 400px; padding: 20px">
       <h1>通知</h1>
       <p>${message}</p>
       <footer>
@@ -150,10 +150,82 @@ function stringify(passedObj, options = {}) {
   })(passedObj, "", 0);
 }
 
+
+const storageEmptyTexts = ['undefined', 'null']
+
+/**
+ * @template T
+ * @param key {string}
+ * @param defaultValue {T}
+ * @param storage {Storage}
+ * @param ignoreEmptyText {boolean?}
+ * @returns {{
+ *  defaultValue: T
+ *  getItem: () => T
+ *  setItem: (key: string, value: T) => void
+ *  removeItem: () => void
+ * }}
+ */
+function createValueStorage (
+  key,
+  defaultValue,
+  storage = localStorage,
+  ignoreEmptyText = true,
+) {
+  const getItem = () => _getStorageItem(storage, key, defaultValue, ignoreEmptyText)
+
+  return {
+    defaultValue: getItem(),
+    getItem,
+    setItem: (value) => _setStorageItem(storage, key, value, ignoreEmptyText),
+    removeItem: () => storage.removeItem(key),
+  }
+}
+
+function _getStorageItem(storage, key, defaultValue, ignoreEmptyText = true) {
+  const value = storage.getItem(key)
+
+  if (value == null) return defaultValue
+  if (ignoreEmptyText && storageEmptyTexts.includes(value)) return defaultValue
+
+  try {
+    return JSON.parse(value)
+  } catch {
+    return defaultValue
+  }
+}
+
+function _setStorageItem(storage, key, value, ignoreEmptyText = true) {
+  if (value == null) {
+    storage.removeItem(key)
+    return
+  }
+
+  try {
+    const stringifyValue = JSON.stringify(value)
+
+    if (ignoreEmptyText && storageEmptyTexts.includes(stringifyValue)) {
+      storage.removeItem(key)
+      return
+    }
+
+    storage.setItem(key, stringifyValue)
+  } catch {
+    storage.removeItem(key)
+  }
+}
+
+function updateVueStorageData (vm, storage, key, value) {
+  vm[key] = value
+  storage[key].setItem(value)
+}
+
 module.exports = {
   alphaToPercentage,
   percentageToAlpha,
   showAlert,
   sortColorNameList,
   stringify,
+  createValueStorage,
+  updateVueStorageData,
 }

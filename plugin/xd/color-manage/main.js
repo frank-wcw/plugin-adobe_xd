@@ -2,11 +2,19 @@
 /// https://developer.adobe.com/xd/uxp/develop/tutorials/quick-start/
 
 const assets = require('assets')
-const clipboard = require("clipboard")
-const { Color, LinearGradient, RadialGradient } = require("scenegraph")
-const uxp = require("uxp")
+const clipboard = require('clipboard')
+const { Color, LinearGradient, RadialGradient, Artboard } = require('scenegraph')
+const uxp = require('uxp')
+const { id: pluginId } = require('./manifest.json')
 const fs = uxp.storage.localFileSystem
-const { showAlert, sortColorNameList, stringify, alphaToPercentage } = require("./helper/v1")
+const {
+  showAlert,
+  sortColorNameList,
+  stringify,
+  alphaToPercentage,
+  createValueStorage,
+  updateVueStorageData,
+} = require('./helper/v1')
 
 async function importAssetsColors(selection, documentRoot
 ) {
@@ -21,7 +29,7 @@ async function importAssetsColors(selection, documentRoot
     return
   }
 
-  const assetAllColors = assets.colors.get().reduce((p, e) => {
+  const allAssetsColors = assets.colors.get().reduce((p, e) => {
     const [, colorName] = e.name.match(/^([A-z]+\d+).*$/) || [undefined, '???']
     p[colorName] = e
     return p
@@ -49,7 +57,7 @@ async function importAssetsColors(selection, documentRoot
 
         const name = `${colorName}號色 ${toColorDescName(hex, opacity)} - ${description}`
 
-        const oldColor = assetAllColors[colorName]
+        const oldColor = allAssetsColors[colorName]
         if (oldColor) {
           const oldColorKey = colorToKey(oldColor.color)
           if (colorToKey(color) === oldColorKey) continue
@@ -73,7 +81,7 @@ async function importAssetsColors(selection, documentRoot
 
         const name = `${colorName}號色 ${ascStopColorStops.map(e => toColorDescName(e.hex, e.opacity)).join(' - ')} - ${description}`
 
-        const oldColor = assetAllColors[colorName]
+        const oldColor = allAssetsColors[colorName]
         if (oldColor) {
           const oldColorKey = gradientLinearToKey(oldColor)
           if (gradientLinearToKey(gradient) === oldColorKey) continue
@@ -150,16 +158,16 @@ function toColorDescName (hex, opacity) {
 }
 
 async function exportAssetsColors () {
-  const assetAllColors = assets.colors.get()
+  const allAssetsColors = assets.colors.get()
 
-  if (!assetAllColors.length) {
+  if (!allAssetsColors.length) {
     showAlert('assets 沒有任一顏色，請嘗試添加顏色以導出顏色配置')
     return
   }
 
   const exportDataList = []
 
-  assetAllColors.forEach(e => {
+  allAssetsColors.forEach(e => {
     const [_, colorName, afterText, dash, desc] = e.name.match(/^([A-z]+\d+)(.+(\s-\s)(.*)$)?/) || []
     const description = desc || afterText || e.name
 
@@ -210,15 +218,15 @@ async function exportAssetsColors () {
 }
 
 function copyAssetsColors() {
-  const assetAllColors = assets.colors.get()
+  const allAssetsColors = assets.colors.get()
 
-  if (!assetAllColors.length) {
+  if (!allAssetsColors.length) {
     showAlert('assets 沒有任一顏色，嘗試添加顏色以嘗試複製功能')
     return
   }
 
   const copyTexts = []
-  assetAllColors.forEach(e => {
+  allAssetsColors.forEach(e => {
     const {
       name,
       color, // 若是單色才有
@@ -256,10 +264,197 @@ function toUnoColorValue (color) {
   return `rgba('${hexColor}', ${alphaToPercentage(color.a) / 100})`
 }
 
+function drawAssetsColors (selection, documentRoot) {
+  const space = 100
+  let minX = 0, minY = 0
+
+  documentRoot.children.forEach(e => {
+    const { x, y, width, height } = e.globalBounds
+    if (x < minX) minX = x
+    if (y < minY) minY = y
+  })
+
+  const allAssetsColors = assets.colors.get()
+  const artboard = new Artboard()
+  let width = 500, height = 500
+
+  artboard.fill = new Color('#ffffff')
+  artboard.moveInParentCoordinates(minX - space - width, minY)
+  artboard.width = width
+  artboard.height = height
+
+  for (let i = 0; i < allAssetsColors.length; i++) {
+
+  }
+
+  documentRoot.addChild(artboard)
+}
+
+let configPanelDom, configPanelApp
+function showPanelConfig (event) {
+  if (configPanelDom) return
+
+  const Vue = require('./lib/vue@2.7.16.cjs')
+  const application = require("application")
+  const { name: documentFilename, guid: documentGuid } = application.activeDocument
+
+  configPanelDom = document.createElement('div')
+  configPanelDom.innerHTML = '<div id="config-panel"></div>'
+  event.node.appendChild(configPanelDom)
+
+  const storageName = name => `${documentGuid}_config_panel_${name}`
+  const storage = {
+    groupList: createValueStorage(storageName('group_list'), []),
+  }
+  const vueData = {
+    isCreatingGroup: false,
+    inputGroupName: '',
+    /** @type {{ name: string; colors: { colorName: string; name: string; color: object }[] }[]} */
+    groupList: storage.groupList.defaultValue,
+    /** @type {Map<string, true>} */
+    collapsedGroupNameMap: new Map(),
+    options: assets.colors.get(),
+    selectOptionValue: '',
+  }
+
+  vueData.groupList.forEach(e => {
+    vueData.collapsedGroupNameMap.set(e.name, true)
+  })
+
+  configPanelApp = new Vue({
+    el: '#config-panel',
+    data: vueData,
+    render(h) {
+      /** @type {typeof vueData} */
+      const vm = this
+      const basePL = 8
+      const basePR = 8
+      const baseLabelStyle = { style: { fontSize: 12, paddingLeft: basePL } }
+
+      return h('div', [
+        h('div', baseLabelStyle, '選擇要添加到群組的色號'),
+        h(
+          'select',
+          {
+            attrs: { name: 'color-name' },
+            domProps: { value: vm.selectOptionValue },
+            on: {
+              change(event) {
+                vm.selectOptionValue = event.target.selectOptionValue
+              },
+            },
+          },
+          [
+            vm.options.map(e => {
+              const [, colorName] = e.name.match(/^([A-z]+\d+).*$/) || []
+              return h('option', { attrs: { value: colorName } }, e.name)
+            })
+          ]
+        ),
+        h('hr'),
+        h(
+          'div',
+          { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: basePR } },
+          [
+            h('div', baseLabelStyle, '顏色群組'),
+            h(
+              'div',
+              {
+                style: { fontSize: 18, fontWeight: 700, cursor: 'pointer' },
+                on: {
+                  click() {
+                    vm.isCreatingGroup = !vm.isCreatingGroup
+                    if (vm.isCreatingGroup) vm.inputGroupName = ''
+                  }
+                }
+              },
+              vm.isCreatingGroup ? 'x' : '+'
+            ),
+          ],
+        ),
+        vm.isCreatingGroup && h(
+          'input',
+          {
+            attrs: { placeholder: '請輸入群組名稱' },
+            domProps: { type: vm.inputGroupName },
+            on: {
+              input(event) {
+                vm.inputGroupName = event.target.value
+              },
+              keydown(event) {
+                if (!(event.key === 'Enter' || event.keyCode === 13)) return
+
+                if (vm.groupList.some(e => e.name === vm.inputGroupName)) {
+                  showAlert('已存在該群組，請嘗試替換其他群組名')
+                  return
+                }
+
+                const newGroupList = [
+                  ...vm.groupList,
+                  {
+                    name: vm.inputGroupName,
+                    colors: [],
+                  },
+                ]
+                updateVueStorageData(vm, storage, 'groupList', newGroupList)
+                vm.isCreatingGroup = false
+                vm.inputGroupName = ''
+              },
+            }
+          },
+        ),
+        vm.groupList.length > 0 && h('hr'),
+        h(
+          'div',
+          { style: { paddingLeft: basePL } },
+          [
+            vm.groupList.map(({ name }) => {
+              const isCollapsed = vm.collapsedGroupNameMap.get(name)
+
+              return h(
+                'div',
+                { style: { display: 'flex', paddingTop: 4, paddingBottom: 4 } },
+                [
+                  h(
+                    'div',
+                    {
+                      style: { cursor: 'pointer', fontWeight: 700, marginRight: 4 },
+                      on: {
+                        click() {
+                          if (isCollapsed) vm.collapsedGroupNameMap.delete(name)
+                          else vm.collapsedGroupNameMap.set(name, true)
+
+                          vm.collapsedGroupNameMap = new Map(vm.collapsedGroupNameMap)
+                        },
+                      },
+                    },
+                    isCollapsed ? '-' : '+'
+                  ),
+                  h('div', name),
+                ],
+              )
+            }),
+          ]
+        ),
+        // h('button', { attrs: { 'uxp-variant': 'cta' } }, 'Apply'),
+      ])
+    }
+  })
+}
+
+function updatePanelConfig (selection, documentRoot) {}
+
 module.exports = {
+  panels: {
+    panelConfig: {
+      show: showPanelConfig,
+      update: updatePanelConfig,
+    },
+  },
   commands: {
+    copyAssetsColors,
     importAssetsColors,
     exportAssetsColors,
-    copyAssetsColors,
+    drawAssetsColors,
   },
 }
