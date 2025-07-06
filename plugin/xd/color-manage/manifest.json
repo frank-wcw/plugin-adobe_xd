@@ -1,0 +1,30 @@
+{
+  "id": "frank-wcw-plugin-xd-color-manage",
+  "name": "顏色 by frank-wcw",
+  "version": "0.0.0",
+  "description": "導入/匯出/拷貝/生成畫布 ... 等顏色功能插件",
+  "summary": "導入/匯出/拷貝/生成畫布 ... 等顏色功能插件",
+  "languages": ["en", "zh"],
+  "author": "frank-wcw",
+  "host": {
+    "app": "XD",
+    "minVersion": "13.0"
+  },
+  "uiEntryPoints": [
+    {
+      "type": "menu",
+      "label": "複製 (COPY)",
+      "commandId": "copyAssetsColors"
+    },
+    {
+      "type": "menu",
+      "label": "導入 (IMPORT)",
+      "commandId": "importAssetsColors"
+    },
+    {
+      "type": "menu",
+      "label": "匯出 (EXPORT)",
+      "commandId": "exportAssetsColors"
+    }
+  ]
+}

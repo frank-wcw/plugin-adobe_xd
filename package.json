@@ -6,7 +6,7 @@
   "packageManager": "pnpm@10.12.3",
   "scripts": {
     "build:all": "pnpm -r --parallel build",
-    "script:sync-xd-plugin": "tsx ./script/sync-xd-plugin.ts --watch --proj copy-color --dir"
+    "script:sync-xd-plugin": "tsx ./script/sync-xd-plugin.ts --watch --proj color-manage --dir"
   },
   "repository": {
     "type": "git",
