@@ -5,6 +5,7 @@
   "private": true,
   "packageManager": "pnpm@10.12.3",
   "scripts": {
+    "dev:playground-vanillajs": "pnpm -r --filter vanillajs dev",
     "build:all": "pnpm -r --parallel build",
     "script:sync-xd-plugin": "tsx ./script/sync-xd-plugin.ts --watch --proj color-manage --dir"
   },
