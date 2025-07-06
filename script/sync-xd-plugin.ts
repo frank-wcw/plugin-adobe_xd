@@ -41,7 +41,7 @@ run()
 
 async function run () {
   await copyProjectToXdPluginDir()
-  console.log(`已將插件檔推至您的插件目錄 ${dir}`)
+  console.log(`已將插件檔(${projectName})推至您的插件目錄 ${dir}`)
 
   if (isWatch) {
     const watcher = chokidar.watch('.', {
