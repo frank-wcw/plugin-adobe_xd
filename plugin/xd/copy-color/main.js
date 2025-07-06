@@ -10,6 +10,7 @@ function copyAllAssetColors() {
 
   if (!assetAllColors.length) {
     showAlert('assets 沒有任一顏色，嘗試添加顏色以嘗試複製功能')
+    return
   }
 
   const copyTexts = []
