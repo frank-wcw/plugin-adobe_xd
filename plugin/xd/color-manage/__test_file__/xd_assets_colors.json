@@ -1,0 +1,28 @@
+{
+  "test01": {
+    "description": "笑哈哈",
+    "hex": "#6B03F3",
+    "opacity": 0.5
+  },
+  "a01": {
+    "description": "紅色的玩意",
+    "hex": "#A50000"
+  },
+  "a02": {
+    "description": "應用於首頁漸層按鈕底色。例：註冊、存取款按鈕",
+    "gradientType": "linear",
+    "colorStops": [
+      { "stop": 0, "hex": "#A50000", "opacity": 1 },
+      { "stop": 0.5, "hex": "#9A9400", "opacity": 0.5 },
+      { "stop": 1, "hex": "#6B03F3" }
+    ]
+  },
+  "com01": {
+    "description": "應用頂部頭的",
+    "gradientType": "radial",
+    "colorStops": [
+      { "stop": 0, "hex": "#A50000", "opacity": 0.5 },
+      { "stop": 1, "hex": "#6B03F3" }
+    ]
+  }
+}
