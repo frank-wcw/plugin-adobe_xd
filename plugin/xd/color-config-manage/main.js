@@ -5,7 +5,7 @@ const assets = require('assets')
 const { Color, LinearGradient, RadialGradient } = require("scenegraph")
 const uxp = require("uxp")
 const fs = uxp.storage.localFileSystem
-const { showAlert } = require('./helper')
+const { showAlert, sortColorNameList, stringify, alphaToPercentage } = require("./helper/v1")
 
 async function importAssetsColors(selection, documentRoot
 ) {
@@ -46,7 +46,7 @@ async function importAssetsColors(selection, documentRoot
         if (opacity) color = new Color(hex, opacity)
         else color = new Color(hex)
 
-        const name = `${colorName}號色 ${hex} - ${description}`
+        const name = `${colorName}號色 ${toColorDescName(hex, opacity)} - ${description}`
 
         const oldColor = assetAllColors[colorName]
         if (oldColor) {
@@ -70,7 +70,7 @@ async function importAssetsColors(selection, documentRoot
           color: opacity != null ? new Color(hex, opacity) : new Color(hex),
         }))
 
-        const name = `${colorName}號色 ${ascStopColorStops.map(e => e.hex).join(' - ')} - ${description}`
+        const name = `${colorName}號色 ${ascStopColorStops.map(e => toColorDescName(e.hex, e.opacity)).join(' - ')} - ${description}`
 
         const oldColor = assetAllColors[colorName]
         if (oldColor) {
@@ -144,7 +144,68 @@ function colorToKey (color) {
   return `${color.toHex(true)}${color.a ? color.a : 255}`
 }
 
-function exportAssetsColors () {
+function toColorDescName (hex, opacity) {
+  return `${hex}${opacity ? `(${opacity * 100}%)` : ''}`
+}
+
+async function exportAssetsColors () {
+  const assetAllColors = assets.colors.get()
+
+  if (!assetAllColors.length) {
+    showAlert('assets 沒有任一顏色，請嘗試添加顏色以導出顏色配置')
+    return
+  }
+
+  const exportDataList = []
+
+  assetAllColors.forEach(e => {
+    const [_, colorName, afterText, dash, desc] = e.name.match(/^([A-z]+\d+)(.+(\s-\s)(.*)$)?/) || []
+    const description = desc || afterText || e.name
+
+    if (e.color instanceof Color) {
+      const data = {
+        colorName,
+        description,
+        hex: e.color.toHex(true),
+      }
+      if (e.color.a && e.color.a !== 255) data.opacity = alphaToPercentage(e.color.a) / 100
+      exportDataList.push(data)
+    } else if (e.gradientType) {
+      const data = {
+        colorName,
+        description,
+        gradientType: e.gradientType,
+        colorStops: e.colorStops.map(f => {
+          const color = {
+            stop: f.stop,
+            hex: f.color.toHex(true),
+          }
+          if (f.color.a && f.color.a !== 255) color.opacity = alphaToPercentage(f.color.a) / 100
+          return color
+        })
+      }
+      exportDataList.push(data)
+    }
+  })
+
+  const currentDate = new Date()
+  let filename = '顏色配置_'
+
+  filename += currentDate.getFullYear()
+  filename += (currentDate.getMonth() + 1).toString().padStart(2, '0')
+  filename += currentDate.getDate().toString().padStart(2, '0')
+
+  const file = await fs.getFileForSaving(`${filename}.json`)
+  if (file) {
+    const resultJsonString = stringify(sortColorNameList(exportDataList, {
+      transformElement: e => e.colorName
+    }).reduce((p, { colorName, ...other }) => {
+      p[colorName] = other
+      return p
+    }, {}), { maxLength: 60 })
+
+    await file.write(resultJsonString)
+  }
 }
 
 module.exports = {
