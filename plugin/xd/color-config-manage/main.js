@@ -50,7 +50,9 @@ async function importAssetsColors(selection, documentRoot
 
         const oldColor = assetAllColors[colorName]
         if (oldColor) {
-          sameColorMap.set(colorToKey(oldColor.color), color)
+          const oldColorKey = colorToKey(oldColor.color)
+          if (colorToKey(color) === oldColorKey) continue
+          sameColorMap.set(oldColorKey, color)
           deleteColors.push(oldColor)
         }
 
@@ -72,7 +74,9 @@ async function importAssetsColors(selection, documentRoot
 
         const oldColor = assetAllColors[colorName]
         if (oldColor) {
-          sameColorMap.set(gradientLinearToKey(oldColor), gradient)
+          const oldColorKey = gradientLinearToKey(oldColor)
+          if (gradientLinearToKey(gradient) === oldColorKey) continue
+          sameColorMap.set(oldColorKey, gradient)
           deleteColors.push(oldColor)
         }
 
@@ -83,14 +87,12 @@ async function importAssetsColors(selection, documentRoot
         })
       }
     }
-
   } catch (error) {
     showAlert(`顏色匹配過程出現錯誤 (${error.message})`)
     console.error(error)
     return
   }
 
-  console.log(deleteColors)
   try {
     recursiveFindChild(documentRoot, sameColorMap)
 
@@ -143,7 +145,6 @@ function colorToKey (color) {
 }
 
 function exportAssetsColors () {
-
 }
 
 module.exports = {
