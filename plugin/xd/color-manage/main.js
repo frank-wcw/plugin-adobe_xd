@@ -1,7 +1,6 @@
 /// xd 插件開發文檔可參閱
 /// https://developer.adobe.com/xd/uxp/develop/tutorials/quick-start/
 
-const application = require('application')
 const assets = require('assets')
 const clipboard = require('clipboard')
 const { Color, LinearGradient, RadialGradient, Artboard } = require('scenegraph')
@@ -37,7 +36,7 @@ const {
 
 /**
  * @typedef {Object} AssetsColor
- * @property {string} name - 顏色名稱
+ * @property {string} name - 顏色名稱 (有改過名字才有)
  * @property {Color} [color] - 顏色對象 (若是單色才有)
  * @property {('linear'|'radial')} [gradientType] - 漸層類型 (漸層才會有)
  * @property {ColorStop[]} [colorStops] - 顏色停止點數組 (漸層才會有)
@@ -58,7 +57,8 @@ async function importAssetsColors(selection, documentRoot
 
   /** @type {AssetsColor[]} */
   const allAssetsColors = assets.colors.get().reduce((p, e) => {
-    const [, colorName] = e.name.match(/^([A-z]+\d+).*$/) || [undefined, '???']
+    const [, colorName] = e.name?.match(/^([A-z]+\d+).*$/) || []
+    if (!colorName) return p
     p[colorName] = e
     return p
   }, {})
@@ -197,7 +197,9 @@ async function exportAssetsColors () {
   const exportDataList = []
 
   allAssetsColors.forEach(e => {
-    const [_, colorName, afterText, dash, desc] = e.name.match(/^([A-z]+\d+)(.+(\s-\s)(.*)$)?/) || []
+    const [_, colorName, afterText, dash, desc] = e.name?.match(/^([A-z]+\d+)(.+(\s-\s)(.*)$)?/) || []
+    if (!colorName) return
+
     const description = desc || afterText || e.name
 
     if (e.color instanceof Color) {
@@ -263,7 +265,8 @@ function copyUnoAssetsColors() {
     gradientType,
     colorStops,
   }) => {
-    const [, colorName] = name.match(/^([A-z]+\d+).*$/) || [undefined, '???']
+    const [, colorName] = name?.match(/^([A-z]+\d+).*$/) || []
+    if (!colorName) return
 
     if (color) {
       copyTextList.push(`${colorName}: ${toUnoColorValue(color)}, // ${name}`)
@@ -347,7 +350,7 @@ function showPanelConfig (event) {
       colorStops,
     } = e
 
-    const [, colorName] = name.match(/^([A-z]+\d+).*$/) || []
+    const [, colorName] = name?.match(/^([A-z]+\d+).*$/) || []
     if (!colorName) return
     if (color instanceof Color) {
       const { r, g, b, a } = color.toRgba()
@@ -463,7 +466,7 @@ function showPanelConfig (event) {
         //   },
         //   [
         //     vm.options.map(e => {
-        //       const [, colorName] = e.name.match(/^([A-z]+\d+).*$/) || []
+        //       const [, colorName] = e.name?.match(/^([A-z]+\d+).*$/) || []
         //       return h('option', { attrs: { value: colorName } }, e.name)
         //     })
         //   ]
