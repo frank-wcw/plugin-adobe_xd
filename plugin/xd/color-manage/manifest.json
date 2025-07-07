@@ -19,7 +19,7 @@
     {
       "type": "menu",
       "label": "Copy to Uno color object",
-      "commandId": "copyAssetsColors"
+      "commandId": "copyUnoAssetsColors"
     },
     {
       "type": "menu",

@@ -38,9 +38,9 @@ const {
 /**
  * @typedef {Object} AssetsColor
  * @property {string} name - 顏色名稱
- * @property {Color} [color] - 顏色對象
- * @property {('linear'|'radial')} [gradientType] - 漸層類型
- * @property {ColorStop[]} [colorStops] - 顏色停止點數組
+ * @property {Color} [color] - 顏色對象 (若是單色才有)
+ * @property {('linear'|'radial')} [gradientType] - 漸層類型 (漸層才會有)
+ * @property {ColorStop[]} [colorStops] - 顏色停止點數組 (漸層才會有)
  */
 
 async function importAssetsColors(selection, documentRoot
@@ -246,7 +246,7 @@ async function exportAssetsColors () {
   }
 }
 
-function copyAssetsColors() {
+function copyUnoAssetsColors() {
   /** @type {AssetsColor[]} */
   const allAssetsColors = assets.colors.get()
 
@@ -255,35 +255,37 @@ function copyAssetsColors() {
     return
   }
 
-  const copyTexts = []
+  const copyTextList = []
+
   allAssetsColors.forEach(({
     name,
-    color, // 若是單色才有
-    gradientType, // linear, radial 漸層才會有
-    colorStops, // 看起來是 color[]
+    color,
+    gradientType,
+    colorStops,
   }) => {
     const [, colorName] = name.match(/^([A-z]+\d+).*$/) || [undefined, '???']
 
     if (color) {
-      copyTexts.push(`${colorName}: ${toUnoColorValue(color)}, // ${name}`)
+      copyTextList.push(`${colorName}: ${toUnoColorValue(color)}, // ${name}`)
     } else if (gradientType) {
       colorStops.forEach((f, i) => {
         const { color } = f
-        copyTexts.push(`${colorName}_${i + 1}: ${toUnoColorValue(color)}, // ${name}`)
+        copyTextList.push(`${colorName}_${i + 1}: ${toUnoColorValue(color)}, // ${name}`)
       })
     }
   })
 
-  if (!copyTexts.length) {
+  if (!copyTextList.length) {
     showAlert('未匹配到任何可以複製的顏色！')
     return
   }
 
-  const colorText = sortColorNameList(copyTexts).join('\n  ')
+  const colorText = sortColorNameList(copyTextList).join('\n  ')
 
   clipboard.copyText(`{
   ${colorText}
 }`)
+
   showAlert('顏色已成功複製到剪貼簿！')
 }
 
@@ -340,9 +342,9 @@ function showPanelConfig (event) {
   allAssetsColors.forEach((e) => {
     const {
       name,
-      color, // 若是單色才有
-      gradientType, // linear, radial 漸層才會有
-      colorStops, // 看起來是 color[]
+      color,
+      gradientType,
+      colorStops,
     } = e
 
     const [, colorName] = name.match(/^([A-z]+\d+).*$/) || []
@@ -666,7 +668,7 @@ module.exports = {
     },
   },
   commands: {
-    copyAssetsColors,
+    copyUnoAssetsColors,
     importAssetsColors,
     exportAssetsColors,
     drawAssetsColors,
