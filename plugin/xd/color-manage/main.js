@@ -1,11 +1,11 @@
 /// xd 插件開發文檔可參閱
 /// https://developer.adobe.com/xd/uxp/develop/tutorials/quick-start/
 
+const application = require("application")
 const assets = require('assets')
 const clipboard = require('clipboard')
 const { Color, LinearGradient, RadialGradient, Artboard } = require('scenegraph')
 const uxp = require('uxp')
-const { id: pluginId } = require('./manifest.json')
 const fs = uxp.storage.localFileSystem
 const {
   showAlert,
@@ -385,7 +385,6 @@ function showPanelConfig (event) {
   }
 
   const Vue = require('./lib/vue@2.7.16.min.cjs')
-  const application = require("application")
   const { name: documentFilename, guid: documentGuid } = application.activeDocument
 
   configPanelDom = document.createElement('div')
