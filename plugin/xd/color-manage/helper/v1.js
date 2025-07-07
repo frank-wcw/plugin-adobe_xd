@@ -109,7 +109,7 @@ function showAlert(message) {
       <h1>通知</h1>
       <p>${message}</p>
       <footer>
-          <button uxp-variant="cta" type="submit">確定</button>
+          <button id="alert-submit" uxp-variant="cta" type="submit">確定</button>
       </footer>
     </form>
   `
