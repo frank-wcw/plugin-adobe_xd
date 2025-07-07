@@ -34,7 +34,7 @@
     {
       "type": "menu",
       "label": "繪製 (建置中)",
-      "commandId": "exportAssetsColors"
+      "commandId": "drawAssetsColors"
     }
   ]
 }

@@ -1,6 +1,7 @@
 /// xd 插件開發文檔可參閱
 /// https://developer.adobe.com/xd/uxp/develop/tutorials/quick-start/
 
+const application = require('application')
 const assets = require('assets')
 const clipboard = require('clipboard')
 const { Color, LinearGradient, RadialGradient, Artboard } = require('scenegraph')
@@ -12,9 +13,35 @@ const {
   sortColorNameList,
   stringify,
   alphaToPercentage,
+  shouldUseBlackText,
+  shouldUseBlackTextForGradient,
   createValueStorage,
   updateVueStorageData,
 } = require('./helper/v1')
+
+/**
+ * @typedef {Object} Color
+ * @property {number} r - 紅色值
+ * @property {number} g - 綠色值
+ * @property {number} b - 藍色值
+ * @property {number} a - 透明度
+ * @property {(toSix?: boolean) => string} toHex - 轉換為十六進制顏色
+ * @property {() => { r: number, g: number, b: number, a: number }} toRgba - 轉換為RGBA對象
+ */
+
+/**
+ * @typedef {Object} ColorStop
+ * @property {number} stop - 停止點位置
+ * @property {Color} color - 顏色
+ */
+
+/**
+ * @typedef {Object} AssetsColor
+ * @property {string} name - 顏色名稱
+ * @property {Color} [color] - 顏色對象
+ * @property {('linear'|'radial')} [gradientType] - 漸層類型
+ * @property {ColorStop[]} [colorStops] - 顏色停止點數組
+ */
 
 async function importAssetsColors(selection, documentRoot
 ) {
@@ -29,6 +56,7 @@ async function importAssetsColors(selection, documentRoot
     return
   }
 
+  /** @type {AssetsColor[]} */
   const allAssetsColors = assets.colors.get().reduce((p, e) => {
     const [, colorName] = e.name.match(/^([A-z]+\d+).*$/) || [undefined, '???']
     p[colorName] = e
@@ -158,6 +186,7 @@ function toColorDescName (hex, opacity) {
 }
 
 async function exportAssetsColors () {
+  /** @type {AssetsColor[]} */
   const allAssetsColors = assets.colors.get()
 
   if (!allAssetsColors.length) {
@@ -218,6 +247,7 @@ async function exportAssetsColors () {
 }
 
 function copyAssetsColors() {
+  /** @type {AssetsColor[]} */
   const allAssetsColors = assets.colors.get()
 
   if (!allAssetsColors.length) {
@@ -226,13 +256,12 @@ function copyAssetsColors() {
   }
 
   const copyTexts = []
-  allAssetsColors.forEach(e => {
-    const {
-      name,
-      color, // 若是單色才有
-      gradientType, // linear, radial 漸層才會有
-      colorStops, // 看起來是 color[]
-    } = e
+  allAssetsColors.forEach(({
+    name,
+    color, // 若是單色才有
+    gradientType, // linear, radial 漸層才會有
+    colorStops, // 看起來是 color[]
+  }) => {
     const [, colorName] = name.match(/^([A-z]+\d+).*$/) || [undefined, '???']
 
     if (color) {
@@ -274,18 +303,14 @@ function drawAssetsColors (selection, documentRoot) {
     if (y < minY) minY = y
   })
 
-  const allAssetsColors = assets.colors.get()
   const artboard = new Artboard()
   let width = 500, height = 500
 
+  artboard.name = '色塊圖'
   artboard.fill = new Color('#ffffff')
   artboard.moveInParentCoordinates(minX - space - width, minY)
   artboard.width = width
   artboard.height = height
-
-  for (let i = 0; i < allAssetsColors.length; i++) {
-
-  }
 
   documentRoot.addChild(artboard)
 }
@@ -294,7 +319,7 @@ let configPanelDom, configPanelApp
 function showPanelConfig (event) {
   if (configPanelDom) return
 
-  const Vue = require('./lib/vue@2.7.16.cjs')
+  const Vue = require('./lib/vue@2.7.16.min.cjs')
   const application = require("application")
   const { name: documentFilename, guid: documentGuid } = application.activeDocument
 
@@ -302,19 +327,76 @@ function showPanelConfig (event) {
   configPanelDom.innerHTML = '<div id="config-panel"></div>'
   event.node.appendChild(configPanelDom)
 
+  /** @type {AssetsColor[]} */
+  const allAssetsColors = assets.colors.get()
+  /** @desc key 為 colorName */
+  /** @type {Map<string, { origin: AssetsColor; shouldBlackText: boolean; colorCss?: string; gradientType?: 'linear' | 'radial' }>} */
+  const allAssetsColorsMap = new Map()
+  /** @type {{ name: string; colorNameList: string[] }[]} */
+  const defaultGroupList = [
+    { name: '未分類', colorNameList: [] },
+  ]
+
+  allAssetsColors.forEach((e) => {
+    const {
+      name,
+      color, // 若是單色才有
+      gradientType, // linear, radial 漸層才會有
+      colorStops, // 看起來是 color[]
+    } = e
+
+    const [, colorName] = name.match(/^([A-z]+\d+).*$/) || []
+    if (!colorName) return
+    if (color instanceof Color) {
+      const { r, g, b, a } = color.toRgba()
+      const percentAlpha = alphaToPercentage(a) / 100
+      allAssetsColorsMap.set(colorName, {
+        origin: e,
+        shouldBlackText: shouldUseBlackText(r, g, b, percentAlpha),
+        colorCss: `rgba(${r}, ${g}, ${b}, ${percentAlpha})`,
+      })
+    } else if (gradientType) {
+      const shouldBlackTextCheckGradientStops = []
+      let colorCss = gradientType === 'linear' ? 'linear-gradient(to bottom' : 'radial-gradient(circle at center'
+
+      colorStops.forEach(({ stop, color }) => {
+        const percentAlphaColor = color.toRgba()
+        const percentAlpha = alphaToPercentage(percentAlphaColor.a)
+        percentAlphaColor.a = percentAlpha / 100
+
+        shouldBlackTextCheckGradientStops.push({
+          stop,
+          color: percentAlphaColor,
+        })
+
+        colorCss += `, rgba(${percentAlphaColor.r}, ${percentAlphaColor.g}, ${percentAlphaColor.b}, ${percentAlphaColor.a}) ${stop * 100}%`
+      })
+
+      allAssetsColorsMap.set(colorName, {
+        origin: e,
+        shouldBlackText: shouldUseBlackTextForGradient(shouldBlackTextCheckGradientStops),
+        colorCss: colorCss + ')',
+        gradientType,
+      })
+    }
+    defaultGroupList[0].colorNameList.push(colorName)
+  })
+
   const storageName = name => `${documentGuid}_config_panel_${name}`
   const storage = {
-    groupList: createValueStorage(storageName('group_list'), []),
+    groupList: createValueStorage(storageName('group_list_v4'), defaultGroupList),
   }
   const vueData = {
+    isSelectionSomething: false,
+    /** @type {null | { fill: object; stroke: object; }} */
+    selectedXdItem: null,
     isCreatingGroup: false,
     inputGroupName: '',
-    /** @type {{ name: string; colors: { colorName: string; name: string; color: object }[] }[]} */
+    /** @type {{ name: string; colorNameList: string[] }[]} */
     groupList: storage.groupList.defaultValue,
     /** @type {Map<string, true>} */
     collapsedGroupNameMap: new Map(),
-    options: assets.colors.get(),
-    selectOptionValue: '',
+    colorFullName: allAssetsColors.length ? allAssetsColors[0].name : '暫無',
   }
 
   vueData.groupList.forEach(e => {
@@ -332,26 +414,58 @@ function showPanelConfig (event) {
       const baseLabelStyle = { style: { fontSize: 12, paddingLeft: basePL } }
 
       return h('div', [
-        h('div', baseLabelStyle, '選擇要添加到群組的色號'),
         h(
-          'select',
+          'div',
           {
-            attrs: { name: 'color-name' },
-            domProps: { value: vm.selectOptionValue },
-            on: {
-              change(event) {
-                vm.selectOptionValue = event.target.selectOptionValue
-              },
+            style: {
+              position: 'fixed',
+              left: 0,
+              bottom: 0,
+              width: '100%',
             },
           },
           [
-            vm.options.map(e => {
-              const [, colorName] = e.name.match(/^([A-z]+\d+).*$/) || []
-              return h('option', { attrs: { value: colorName } }, e.name)
-            })
-          ]
+            h('div', { style: { fontSize: 12, color: '#008DEB', marginBottom: 4 } }, '顏色完整名'),
+            h(
+              'div',
+              {
+                style: {
+                  backgroundColor: 'rgba(128, 208, 249, 0.1)',
+                  border: '1px solid #75C8FF',
+                  borderRadius: 4,
+                  width: '100%',
+                  height: 60,
+                  padding: 4,
+                  fontSize: 12,
+                  color: '#008DEB',
+                  webkitDisplay: 'box',
+                  webkitLineClamp: 2,
+                  webkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                },
+              },
+              vm.colorFullName,
+            ),
+          ],
         ),
-        h('hr'),
+        // h(
+        //   'select',
+        //   {
+        //     attrs: { name: 'color-name' },
+        //     domProps: { value: vm.selectOptionValue },
+        //     on: {
+        //       change(event) {
+        //         vm.selectOptionValue = event.target.selectOptionValue
+        //       },
+        //     },
+        //   },
+        //   [
+        //     vm.options.map(e => {
+        //       const [, colorName] = e.name.match(/^([A-z]+\d+).*$/) || []
+        //       return h('option', { attrs: { value: colorName } }, e.name)
+        //     })
+        //   ]
+        // ),
         h(
           'div',
           { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: basePR } },
@@ -375,7 +489,7 @@ function showPanelConfig (event) {
         vm.isCreatingGroup && h(
           'input',
           {
-            attrs: { placeholder: '請輸入群組名稱' },
+            attrs: { placeholder: '請輸入要新增的群組名稱' },
             domProps: { type: vm.inputGroupName },
             on: {
               input(event) {
@@ -393,7 +507,7 @@ function showPanelConfig (event) {
                   ...vm.groupList,
                   {
                     name: vm.inputGroupName,
-                    colors: [],
+                    colorNameList: [],
                   },
                 ]
                 updateVueStorageData(vm, storage, 'groupList', newGroupList)
@@ -406,43 +520,143 @@ function showPanelConfig (event) {
         vm.groupList.length > 0 && h('hr'),
         h(
           'div',
-          { style: { paddingLeft: basePL } },
           [
-            vm.groupList.map(({ name }) => {
+            vm.groupList.map(({ name, colorNameList }) => {
               const isCollapsed = vm.collapsedGroupNameMap.get(name)
 
               return h(
                 'div',
-                { style: { display: 'flex', paddingTop: 4, paddingBottom: 4 } },
                 [
+                  // group label
                   h(
                     'div',
-                    {
-                      style: { cursor: 'pointer', fontWeight: 700, marginRight: 4 },
-                      on: {
-                        click() {
-                          if (isCollapsed) vm.collapsedGroupNameMap.delete(name)
-                          else vm.collapsedGroupNameMap.set(name, true)
+                    { style: { display: 'flex', alignItems: 'center', paddingLeft: basePL, paddingTop: 4, paddingBottom: 4 } },
+                    [
+                      h(
+                        'div',
+                        {
+                          style: { cursor: 'pointer', fontWeight: 700, marginRight: 4 },
+                          on: {
+                            click() {
+                              if (isCollapsed) vm.collapsedGroupNameMap.delete(name)
+                              else vm.collapsedGroupNameMap.set(name, true)
 
-                          vm.collapsedGroupNameMap = new Map(vm.collapsedGroupNameMap)
+                              vm.collapsedGroupNameMap = new Map(vm.collapsedGroupNameMap)
+                            },
+                          },
                         },
-                      },
-                    },
-                    isCollapsed ? '-' : '+'
+                        isCollapsed ? '-' : '+'
+                      ),
+                      h('div', { style: { fontSize: 12 } }, name),
+                    ]
                   ),
-                  h('div', name),
+                  // group 顏色列表
+                  isCollapsed && !!colorNameList?.length && h(
+                    'div',
+                    { style: { display: 'flex', flexWrap: 'wrap', padding: '0 4px' } },
+                    colorNameList.map(colorName => {
+                      const { origin, shouldBlackText, colorCss } = allAssetsColorsMap.get(colorName)
+
+                      function handleClick (ev) {
+                        if (vm.isSelectionSomething) {
+                          const target = ev.target.closest('.bel-group-color-item')
+                          const rect = target.getBoundingClientRect()
+                          const centerY = rect.top + (rect.height / 2)
+                          const clickY = ev.clientY
+                          const changeItemKey = clickY < centerY ? 'fill' : 'stroke'
+
+                          if (origin.color) {
+                            application.editDocument(() => {
+                              vm.selectedXdItem[changeItemKey] = origin.color;
+                            })
+                          } else if (origin.gradientType && changeItemKey === 'fill') {
+                            const gradientColor = origin.gradientType === 'linear' ? new LinearGradient() : new RadialGradient()
+                            gradientColor.colorStops = origin.colorStops
+                            application.editDocument(() => {
+                              vm.selectedXdItem[changeItemKey] = gradientColor;
+                            })
+                          }
+                          return
+                        }
+                      }
+
+                      return h(
+                        'div',
+                        {
+                          class: 'bel-group-color-item',
+                          style: {
+                            position: 'relative',
+                            width: '25%',
+                            padding: '2',
+                            cursor: 'pointer',
+                          },
+                          on: {
+                            mouseenter() {
+                              vm.colorFullName = origin.name
+                            },
+                            click: handleClick,
+                          },
+                        },
+                        [
+                          h(
+                            'div',
+                            {
+                              style: {
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                paddingTop: '100%',
+                                background: colorCss
+                                  ? colorCss
+                                  : undefined,
+                                pointerEvents: 'none',
+                              },
+                            },
+                          ),
+                          h(
+                            'div',
+                            {
+                              style: {
+                                position: 'absolute',
+                                left: '50%',
+                                top: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                width: '100%',
+                                textAlign: 'center',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: shouldBlackText ? '#000000' : '#ffffff',
+                                padding: 4,
+                              },
+                              on: {
+                                click: handleClick,
+                              }
+                            },
+                            colorName,
+                          ),
+                        ]
+                      )
+                    })
+                  )
                 ],
               )
             }),
           ]
         ),
-        // h('button', { attrs: { 'uxp-variant': 'cta' } }, 'Apply'),
+        h('div', { style: { height: 88 } }), // 顏色描述的 fixed 佔位用
       ])
     }
   })
 }
 
-function updatePanelConfig (selection, documentRoot) {}
+function updatePanelConfig (selection, documentRoot) {
+  if (configPanelApp && configPanelApp._data) {
+    const isSelectionSomething = !!selection?.items.length
+    configPanelApp._data.isSelectionSomething = !!selection?.items.length
+    configPanelApp._data.selectedXdItem = isSelectionSomething ? selection.items[0] : null
+  }
+}
 
 module.exports = {
   panels: {

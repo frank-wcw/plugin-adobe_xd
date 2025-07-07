@@ -6,6 +6,102 @@ function percentageToAlpha(percentage) {
   return Math.round((percentage / 100) * 255)
 }
 
+/**
+ * 根據背景色決定文字顏色應該是黑色還是白色
+ * @param {number} red - 紅色通道值 (0-255)
+ * @param {number} green - 綠色通道值 (0-255)
+ * @param {number} blue - 藍色通道值 (0-255)
+ * @param {number} alpha - 透明度 (0-1)
+ * @returns {boolean} 若應該使用黑色文字則返回 true，否則返回 false
+ */
+function shouldUseBlackText(red, green, blue, alpha) {
+  const r = red / 255;
+  const g = green / 255;
+  const b = blue / 255;
+
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const finalLuminance = (luminance * alpha) + (1 - alpha);
+
+  return finalLuminance > 0.5;
+}
+
+/**
+ * 計算漸層在特定位置的顏色，並判斷應該使用黑色還是白色文字
+ * @param {Array<{
+ *   stop: number,
+ *   color: {r: number, g: number, b: number, a: number}
+ * }>} colorStops - 漸層的顏色停止點列表
+ * @param {number} [position=0.5] - 要判斷的位置（0-1）
+ * @returns {boolean} 若應該使用黑色文字則返回 true，否則返回 false
+ */
+function shouldUseBlackTextForGradient(colorStops, position = 0.5) {
+  const sortedStops = [...colorStops].sort((a, b) => a.stop - b.stop);
+
+  let startStop = sortedStops[0];
+  let endStop = sortedStops[sortedStops.length - 1];
+
+  for (let i = 0; i < sortedStops.length - 1; i++) {
+    if (position >= sortedStops[i].stop && position <= sortedStops[i + 1].stop) {
+      startStop = sortedStops[i];
+      endStop = sortedStops[i + 1];
+      break;
+    }
+  }
+
+  const stopDiff = endStop.stop - startStop.stop;
+  const progress = stopDiff === 0 ? 0 : (position - startStop.stop) / stopDiff;
+
+  const r = interpolate(startStop.color.r, endStop.color.r, progress);
+  const g = interpolate(startStop.color.g, endStop.color.g, progress);
+  const b = interpolate(startStop.color.b, endStop.color.b, progress);
+  const a = interpolate(startStop.color.a, endStop.color.a, progress);
+
+  return shouldUseBlackText(r, g, b, a);
+}
+
+/**
+ * 計算漸層的平均顏色，並判斷應該使用黑色還是白色文字
+ * @param {Array<{
+ *   stop: number,
+ *   color: {r: number, g: number, b: number, a: number}
+ * }>} colorStops - 漸層的顏色停止點列表
+ * @returns {boolean} 若應該使用黑色文字則返回 true，否則返回 false
+ */
+function shouldUseBlackTextForGradientAverage(colorStops) {
+  let totalR = 0, totalG = 0, totalB = 0, totalA = 0;
+  let totalWeight = 0;
+
+  for (let i = 0; i < colorStops.length - 1; i++) {
+    const current = colorStops[i];
+    const next = colorStops[i + 1];
+    const weight = next.stop - current.stop;
+
+    totalR += (current.color.r + next.color.r) / 2 * weight;
+    totalG += (current.color.g + next.color.g) / 2 * weight;
+    totalB += (current.color.b + next.color.b) / 2 * weight;
+    totalA += (current.color.a + next.color.a) / 2 * weight;
+    totalWeight += weight;
+  }
+
+  const avgR = totalR / totalWeight;
+  const avgG = totalG / totalWeight;
+  const avgB = totalB / totalWeight;
+  const avgA = totalA / totalWeight;
+
+  return shouldUseBlackText(avgR, avgG, avgB, avgA);
+}
+
+/**
+ * 線性插值
+ * @param {number} start - 起始值
+ * @param {number} end - 結束值
+ * @param {number} progress - 進度（0-1）
+ * @returns {number} 插值結果
+ */
+function interpolate(start, end, progress) {
+  return start + (end - start) * progress;
+}
+
 function showAlert(message) {
   const dialog = document.createElement('dialog')
   dialog.innerHTML = `
@@ -223,6 +319,9 @@ function updateVueStorageData (vm, storage, key, value) {
 module.exports = {
   alphaToPercentage,
   percentageToAlpha,
+  shouldUseBlackText,
+  shouldUseBlackTextForGradient,
+  shouldUseBlackTextForGradientAverage,
   showAlert,
   sortColorNameList,
   stringify,
