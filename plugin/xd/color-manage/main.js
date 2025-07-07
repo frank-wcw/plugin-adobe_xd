@@ -131,7 +131,7 @@ async function importAssetsColors(selection, documentRoot
   }
 
   try {
-    recursiveFindChild(documentRoot, sameColorMap)
+    recursiveUpdateChildColor(documentRoot, sameColorMap)
 
     deleteColors.forEach(color => {
       assets.colors.delete(color)
@@ -146,7 +146,7 @@ async function importAssetsColors(selection, documentRoot
   }
 }
 
-function recursiveFindChild (node, sameColorMap) {
+function recursiveUpdateChildColor (node, sameColorMap) {
   node.children.forEach(child => {
     if (child.fill != null) {
       if (child.fill instanceof Color) {
@@ -169,7 +169,7 @@ function recursiveFindChild (node, sameColorMap) {
       }
     }
 
-    recursiveFindChild(child, sameColorMap)
+    recursiveUpdateChildColor(child, sameColorMap)
   })
 }
 
