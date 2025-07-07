@@ -322,18 +322,10 @@ function drawAssetsColors (selection, documentRoot) {
 
 let configPanelDom, configPanelApp
 function showPanelConfig (event) {
-  if (configPanelDom) return
-
-  const Vue = require('./lib/vue@2.7.16.min.cjs')
-  const application = require("application")
-  const { name: documentFilename, guid: documentGuid } = application.activeDocument
-
-  configPanelDom = document.createElement('div')
-  configPanelDom.innerHTML = '<div id="config-panel"></div>'
-  event.node.appendChild(configPanelDom)
-
   /** @type {AssetsColor[]} */
-  const allAssetsColors = assets.colors.get()
+  const allAssetsColors = sortColorNameList(assets.colors.get(), {
+    transformElement: e => e.name || 'a00', // !name 就名字隨意讓裡面取得到職判斷就好
+  })
   /** @desc key 為 colorName */
   /** @type {Map<string, { origin: AssetsColor; shouldBlackText: boolean; colorCss?: string; gradientType?: 'linear' | 'radial' }>} */
   const allAssetsColorsMap = new Map()
@@ -387,9 +379,22 @@ function showPanelConfig (event) {
     defaultGroupList[0].colorNameList.push(colorName)
   })
 
+  if (configPanelDom) {
+    configPanelApp._data.groupList = defaultGroupList
+    return
+  }
+
+  const Vue = require('./lib/vue@2.7.16.min.cjs')
+  const application = require("application")
+  const { name: documentFilename, guid: documentGuid } = application.activeDocument
+
+  configPanelDom = document.createElement('div')
+  configPanelDom.innerHTML = '<div id="config-panel"></div>'
+  event.node.appendChild(configPanelDom)
+
   const storageName = name => `${documentGuid}_config_panel_${name}`
   const storage = {
-    groupList: createValueStorage(storageName('group_list_v4'), defaultGroupList),
+    groupList: createValueStorage(storageName('group_list_v5'), defaultGroupList),
   }
   const vueData = {
     isSelectionSomething: false,
@@ -398,7 +403,8 @@ function showPanelConfig (event) {
     isCreatingGroup: false,
     inputGroupName: '',
     /** @type {{ name: string; colorNameList: string[] }[]} */
-    groupList: storage.groupList.defaultValue,
+    groupList: defaultGroupList,
+    // groupList: storage.groupList.defaultValue,
     /** @type {Map<string, true>} */
     collapsedGroupNameMap: new Map(),
     colorFullName: allAssetsColors.length ? allAssetsColors[0].name : '暫無',
@@ -418,7 +424,7 @@ function showPanelConfig (event) {
       const basePR = 8
       const baseLabelStyle = { style: { fontSize: 12, paddingLeft: basePL } }
 
-      return h('div', [
+      return h('div', { class: 'bel-app-scroll-view', style: { height: 'calc(100vh - 210px)', overflowY: 'auto' } }, [
         h(
           'div',
           {
@@ -476,19 +482,19 @@ function showPanelConfig (event) {
           { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: basePR } },
           [
             h('div', baseLabelStyle, '顏色群組'),
-            h(
-              'div',
-              {
-                style: { fontSize: 18, fontWeight: 700, cursor: 'pointer' },
-                on: {
-                  click() {
-                    vm.isCreatingGroup = !vm.isCreatingGroup
-                    if (vm.isCreatingGroup) vm.inputGroupName = ''
-                  }
-                }
-              },
-              vm.isCreatingGroup ? 'x' : '+'
-            ),
+            // h(
+            //   'div',
+            //   {
+            //     style: { fontSize: 18, fontWeight: 700, cursor: 'pointer' },
+            //     on: {
+            //       click() {
+            //         vm.isCreatingGroup = !vm.isCreatingGroup
+            //         if (vm.isCreatingGroup) vm.inputGroupName = ''
+            //       }
+            //     }
+            //   },
+            //   vm.isCreatingGroup ? 'x' : '+'
+            // ),
           ],
         ),
         vm.isCreatingGroup && h(
@@ -649,7 +655,6 @@ function showPanelConfig (event) {
             }),
           ]
         ),
-        h('div', { style: { height: 88 } }), // 顏色描述的 fixed 佔位用
       ])
     }
   })

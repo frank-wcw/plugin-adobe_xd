@@ -30,11 +30,6 @@
       "type": "menu",
       "label": "匯出",
       "commandId": "exportAssetsColors"
-    },
-    {
-      "type": "menu",
-      "label": "繪製 (建置中)",
-      "commandId": "drawAssetsColors"
     }
   ]
 }
