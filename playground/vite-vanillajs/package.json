@@ -1,5 +1,5 @@
 {
-  "name": "vanillajs",
+  "name": "vite-vanillajs",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,6 +9,6 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "catalog:"
+    "vite": "^7.0.3"
   }
 }
