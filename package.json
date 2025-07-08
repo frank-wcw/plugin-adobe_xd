@@ -5,7 +5,8 @@
   "private": true,
   "packageManager": "pnpm@10.12.3",
   "scripts": {
-    "dev:playground-vanillajs": "pnpm -r --filter vanillajs dev",
+    "dev:playground-vite-vanillajs": "pnpm -r --filter vite-vanillajs dev",
+    "dev:playground-vite-vue3-ts": "pnpm -r --filter vite-vue3-ts dev",
     "build:all": "pnpm -r --parallel build",
     "script:sync-xd-plugin": "tsx ./script/sync-xd-plugin.ts --watch --proj color-manage --dir"
   },
