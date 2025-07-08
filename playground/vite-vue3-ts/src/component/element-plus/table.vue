@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import { ElTable, ElTableColumn } from "element-plus"
 
-const tableData = [
+type TableItem = {
+  date: string
+  name: string
+  address: string
+}
+
+type TableColumnScope = {
+  row: TableItem
+  $index: number
+}
+
+const tableData: TableItem[] = [
   {
     date: '2016-05-03',
     name: 'Tom',
@@ -28,8 +39,7 @@ const tableData = [
 <template>
   <el-table :data="tableData" style="width: 100%">
     <el-table-column label="Date" width="180">
-      <!-- 慘慘沒類型 -->
-      <template #default="scope">
+      <template #default="scope: TableColumnScope">
         {{scope.row.date}}
       </template>
     </el-table-column>

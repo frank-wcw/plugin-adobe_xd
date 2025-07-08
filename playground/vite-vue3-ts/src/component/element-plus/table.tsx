@@ -7,6 +7,11 @@ interface TableItem {
   address: string
 }
 
+type TableColumnScope = {
+  row: TableItem
+  $index: number
+}
+
 const ElementPlusTableTsx: FunctionalComponent = () => {
   const tableData: TableItem[] = [
     {
@@ -35,8 +40,7 @@ const ElementPlusTableTsx: FunctionalComponent = () => {
     <ElTable data={tableData} style={{ width: '100%' }}>
       <ElTableColumn label="Date" width={180}>
         {{
-          // 一樣沒類型= =
-          default: (scope: {row: TableItem}) => (
+          default: (scope: TableColumnScope) => (
             <span>{scope.row.date}</span>
           )
         }}
