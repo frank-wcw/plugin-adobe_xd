@@ -1,13 +1,15 @@
 packages:
-  - 'app/*'
-  - 'package/*'
-  - 'playground/*' # 測試用
-  - 'plugin/xd/*'
-  - 'script/*'
+  - app/*
+  - package/*
+  - playground/*
+  - plugin/xd/*
+  - script/*
+
+autoInstallPeers: true
 
 catalog:
   '@types/fs-extra': ^11.0.4
-  '@types/node': ^24.0.10
+  '@types/node': 24.0.10
   '@types/yargs': ^17.0.33
   chokidar: ^4.0.3
   fs-extra: ^11.3.0
@@ -17,13 +19,8 @@ catalog:
   vite: ^7.0.0
   yargs: ^18.0.0
 
-# 自動安裝對等依賴
-autoInstallPeers: true
-# 忽略工作區根目錄檢查
 ignoreWorkspaceRootCheck: true
-# 啟用依賴提升
-shamefullyHoist: true
-# 關閉嚴格的對等依賴檢查
-strictPeerDependencies: false
 
-#onlyBuiltDependencies:
+shamefullyHoist: true
+
+strictPeerDependencies: false
