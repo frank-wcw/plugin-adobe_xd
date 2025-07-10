@@ -321,6 +321,7 @@ function drawAssetsColors (selection, documentRoot) {
 }
 
 let configPanelDom, configPanelApp
+let _ddd
 function showPanelConfig (event) {
   /** @type {AssetsColor[]} */
   const allAssetsColors = sortColorNameList(assets.colors.get(), {
@@ -424,6 +425,33 @@ function showPanelConfig (event) {
       const baseLabelStyle = { style: { fontSize: 12, paddingLeft: basePL } }
 
       return h('div', { class: 'bel-app-scroll-view', style: { height: 'calc(100vh - 210px)', overflowY: 'auto' } }, [
+        h('div', {
+          style: { cursor: 'pointer' },
+          on: {
+            click() {
+              if (_ddd) {
+                application.editDocument(() => {
+                  recursiveUpdateChildColor(_ddd)
+                })
+              }
+
+              function recursiveUpdateChildColor (node) {
+                node.children.forEach(child => {
+                  console.log(child)
+                  if (child.fill != null) {
+                    if (child.fill instanceof Color) {
+                      if (child.fill.toHex(true).toLowerCase() === '#08aff8') {
+                        child.fill = new Color('#F89008')
+                      }
+                    }
+                  }
+
+                  recursiveUpdateChildColor(child)
+                })
+              }
+            },
+          }
+        }, '測試按鈕'),
         h(
           'div',
           {
@@ -665,6 +693,8 @@ function updatePanelConfig (selection, documentRoot) {
     configPanelApp._data.isSelectionSomething = !!selection?.items.length
     configPanelApp._data.selectedXdItem = isSelectionSomething ? selection.items[0] : null
   }
+
+  _ddd = documentRoot
 }
 
 module.exports = {
