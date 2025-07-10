@@ -4,7 +4,7 @@
 const application = require("application")
 const assets = require('assets')
 const clipboard = require('clipboard')
-const { Color, LinearGradient, RadialGradient, Artboard } = require('scenegraph')
+const { Color, LinearGradient, RadialGradient, Artboard, SymbolInstance, LinkedGraphic } = require('scenegraph')
 const uxp = require('uxp')
 const fs = uxp.storage.localFileSystem
 const {
@@ -148,6 +148,10 @@ async function importAssetsColors(selection, documentRoot
 
 function recursiveUpdateChildColor (node, sameColorMap) {
   node.children.forEach(child => {
+    if (child instanceof LinkedGraphic || child instanceof SymbolInstance) {
+      return
+    }
+
     if (child.fill != null) {
       if (child.fill instanceof Color) {
         const newColor = sameColorMap.get(colorToKey(child.fill))
@@ -178,7 +182,7 @@ function gradientLinearToKey (color) {
 }
 
 function colorToKey (color) {
-  return `${color.toHex(true)}${color.a ? color.a : 255}`
+  return `${color.toHex(true).toLowerCase()}${color.a ? color.a : 255}`
 }
 
 function toColorDescName (hex, opacity) {
@@ -425,33 +429,6 @@ function showPanelConfig (event) {
       const baseLabelStyle = { style: { fontSize: 12, paddingLeft: basePL } }
 
       return h('div', { class: 'bel-app-scroll-view', style: { height: 'calc(100vh - 210px)', overflowY: 'auto' } }, [
-        h('div', {
-          style: { cursor: 'pointer' },
-          on: {
-            click() {
-              if (_ddd) {
-                application.editDocument(() => {
-                  recursiveUpdateChildColor(_ddd)
-                })
-              }
-
-              function recursiveUpdateChildColor (node) {
-                node.children.forEach(child => {
-                  console.log(child)
-                  if (child.fill != null) {
-                    if (child.fill instanceof Color) {
-                      if (child.fill.toHex(true).toLowerCase() === '#08aff8') {
-                        child.fill = new Color('#F89008')
-                      }
-                    }
-                  }
-
-                  recursiveUpdateChildColor(child)
-                })
-              }
-            },
-          }
-        }, '測試按鈕'),
         h(
           'div',
           {
