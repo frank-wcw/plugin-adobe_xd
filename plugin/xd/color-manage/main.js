@@ -4,7 +4,7 @@
 const application = require("application")
 const assets = require('assets')
 const clipboard = require('clipboard')
-const { Color, LinearGradient, RadialGradient, Artboard, SymbolInstance, LinkedGraphic, BooleanGroup } = require('scenegraph')
+const { Color, LinearGradient, RadialGradient, Artboard, SymbolInstance, LinkedGraphic, BooleanGroup, Group } = require('scenegraph')
 const uxp = require('uxp')
 const fs = uxp.storage.localFileSystem
 const {
@@ -148,7 +148,7 @@ async function importAssetsColors(selection, documentRoot
 
 function recursiveUpdateChildColor (node, sameColorMap) {
   node.children.forEach(child => {
-    if (child instanceof LinkedGraphic || child instanceof SymbolInstance || child instanceof BooleanGroup) {
+    if (child instanceof LinkedGraphic || child instanceof SymbolInstance || child instanceof BooleanGroup || child instanceof Group) {
       recursiveUpdateChildColor(child, sameColorMap)
       return
     }
