@@ -316,6 +316,52 @@ function updateVueStorageData (vm, storage, key, value) {
   storage[key].setItem(value)
 }
 
+/**
+ * @param nodeList {object | object[]}
+ * @param updateKeyList {('fill' | 'stroke') | ('fill' | 'stroke')[]}
+ * @param color {object}
+ */
+function updateNodesColor (nodeList, updateKeyList, color) {
+  if (!nodeList || !nodeList.length || !updateKeyList || !updateKeyList.length || !color) return
+
+  const application = require("application")
+  const { Color, LinearGradient, RadialGradient, SymbolInstance } = require('scenegraph')
+
+  const _nodeList = Array.isArray(nodeList) ? nodeList : [nodeList]
+  const _updateKeyList = Array.isArray(updateKeyList) ? updateKeyList : [updateKeyList]
+
+  application.editDocument(() => {
+    _nodeList.map(e => ({ children: [e] })).forEach(recursiveUpdateChild)
+  })
+
+  function recursiveUpdateChild (node) {
+    node.children.forEach(e => {
+      if (e instanceof SymbolInstance) return
+      if (e.isContainer) return recursiveUpdateChild(e)
+
+      _updateKeyList.forEach(f => {
+        if (f === 'fill' && e.fill != null) {
+          if (color instanceof Color) {
+            e.fill = color
+          } else if (color instanceof LinearGradient || color instanceof RadialGradient) {
+            if (e.fill instanceof LinearGradient || e.fill instanceof RadialGradient) {
+              const newGradient = e.fill.clone()
+              newGradient.colorStops = [...color.colorStops]
+              e.fill = newGradient
+            } else {
+              e.fill = color
+            }
+          }
+        }
+
+        if (f === 'stroke' && e.stroke != null && color instanceof Color) e.stroke = color
+      })
+
+      recursiveUpdateChild(e)
+    })
+  }
+}
+
 module.exports = {
   alphaToPercentage,
   percentageToAlpha,
@@ -327,4 +373,5 @@ module.exports = {
   stringify,
   createValueStorage,
   updateVueStorageData,
+  updateNodesColor,
 }

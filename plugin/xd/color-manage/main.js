@@ -4,7 +4,7 @@
 const application = require("application")
 const assets = require('assets')
 const clipboard = require('clipboard')
-const { Color, LinearGradient, RadialGradient, Artboard, SymbolInstance, LinkedGraphic, BooleanGroup, Group } = require('scenegraph')
+const { Color, LinearGradient, RadialGradient, Artboard, SymbolInstance } = require('scenegraph')
 const uxp = require('uxp')
 const fs = uxp.storage.localFileSystem
 const {
@@ -17,30 +17,6 @@ const {
   createValueStorage,
   updateVueStorageData,
 } = require('./helper/v1')
-
-/**
- * @typedef {Object} Color
- * @property {number} r - 紅色值
- * @property {number} g - 綠色值
- * @property {number} b - 藍色值
- * @property {number} a - 透明度
- * @property {(toSix?: boolean) => string} toHex - 轉換為十六進制顏色
- * @property {() => { r: number, g: number, b: number, a: number }} toRgba - 轉換為RGBA對象
- */
-
-/**
- * @typedef {Object} ColorStop
- * @property {number} stop - 停止點位置
- * @property {Color} color - 顏色
- */
-
-/**
- * @typedef {Object} AssetsColor
- * @property {string} name - 顏色名稱 (有改過名字才有)
- * @property {Color} [color] - 顏色對象 (若是單色才有)
- * @property {('linear'|'radial')} [gradientType] - 漸層類型 (漸層才會有)
- * @property {ColorStop[]} [colorStops] - 顏色停止點數組 (漸層才會有)
- */
 
 async function importAssetsColors(selection, documentRoot
 ) {
@@ -55,7 +31,7 @@ async function importAssetsColors(selection, documentRoot
     return
   }
 
-  /** @type {AssetsColor[]} */
+  /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const allAssetsColors = assets.colors.get().reduce((p, e) => {
     const [, colorName] = e.name?.match(/^([A-z]+\d+).*$/) || []
     if (!colorName) return p
@@ -87,8 +63,15 @@ async function importAssetsColors(selection, documentRoot
 
         const oldColor = allAssetsColors[colorName]
         if (oldColor) {
-          const oldColorKey = colorToKey(oldColor.color)
-          if (colorToKey(color) === oldColorKey) continue
+          let oldColorKey
+
+          if (oldColor.color instanceof Color) {
+            oldColorKey = colorToKey(oldColor.color)
+            if (colorToKey(color) === oldColorKey) continue
+          } else {
+            oldColorKey = gradientLinearToKey(oldColor)
+          }
+
           sameColorMap.set(oldColorKey, color)
           deleteColors.push(oldColor)
         }
@@ -111,8 +94,15 @@ async function importAssetsColors(selection, documentRoot
 
         const oldColor = allAssetsColors[colorName]
         if (oldColor) {
-          const oldColorKey = gradientLinearToKey(oldColor)
-          if (gradientLinearToKey(gradient) === oldColorKey) continue
+          let oldColorKey
+
+          if (oldColor.color instanceof Color) {
+            oldColorKey = colorToKey(oldColor.color)
+          } else {
+            oldColorKey = gradientLinearToKey(oldColor)
+            if (gradientLinearToKey(gradient) === oldColorKey) continue
+          }
+
           sameColorMap.set(oldColorKey, gradient)
           deleteColors.push(oldColor)
         }
@@ -131,7 +121,7 @@ async function importAssetsColors(selection, documentRoot
   }
 
   try {
-    recursiveUpdateChildColor(documentRoot, sameColorMap)
+    recursiveUpdateChildColorByImport(documentRoot, sameColorMap)
 
     deleteColors.forEach(color => {
       assets.colors.delete(color)
@@ -146,35 +136,37 @@ async function importAssetsColors(selection, documentRoot
   }
 }
 
-function recursiveUpdateChildColor (node, sameColorMap) {
-  node.children.forEach(child => {
-    if (child instanceof LinkedGraphic || child instanceof SymbolInstance || child instanceof BooleanGroup || child instanceof Group) {
-      recursiveUpdateChildColor(child, sameColorMap)
-      return
-    }
+function recursiveUpdateChildColorByImport (node, sameColorMap) {
+  node.children.forEach(e => {
+    if (e instanceof SymbolInstance) return
+    if (e.isContainer) return recursiveUpdateChildColorByImport(e, sameColorMap)
 
-    if (child.fill != null) {
-      if (child.fill instanceof Color) {
-        const newColor = sameColorMap.get(colorToKey(child.fill))
-        if (newColor) child.fill = newColor
-      } else if (child.fill instanceof LinearGradient || child.fill instanceof RadialGradient) {
-        const newColor = sameColorMap.get(gradientLinearToKey(child.fill))
+    if (e.fill != null) {
+      if (e.fill instanceof Color) {
+        const newColor = sameColorMap.get(colorToKey(e.fill))
+        if (newColor) e.fill = newColor
+      } else if (e.fill instanceof LinearGradient || e.fill instanceof RadialGradient) {
+        const newColor = sameColorMap.get(gradientLinearToKey(e.fill))
         if (newColor) {
-          const newGradient = child.fill.clone()
-          newGradient.colorStops = newColor.colorStops
-          child.fill = newGradient
+          if (newColor instanceof Color) {
+            e.fill = newColor
+          } else {
+            const newGradient = e.fill.clone()
+            newGradient.colorStops = newColor.colorStops
+            e.fill = newGradient
+          }
         }
       }
     }
 
-    if (child.stroke != null) {
-      if (child.stroke instanceof Color) {
-        const newColor = sameColorMap.get(colorToKey(child.stroke))
-        if (newColor) child.stroke = newColor
+    if (e.stroke != null) {
+      if (e.stroke instanceof Color) {
+        const newColor = sameColorMap.get(colorToKey(e.stroke))
+        if (newColor) e.stroke = newColor
       }
     }
 
-    recursiveUpdateChildColor(child, sameColorMap)
+    recursiveUpdateChildColorByImport(e, sameColorMap)
   })
 }
 
@@ -191,7 +183,7 @@ function toColorDescName (hex, opacity) {
 }
 
 async function exportAssetsColors () {
-  /** @type {AssetsColor[]} */
+  /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const allAssetsColors = assets.colors.get()
 
   if (!allAssetsColors.length) {
@@ -254,7 +246,7 @@ async function exportAssetsColors () {
 }
 
 function copyUnoAssetsColors() {
-  /** @type {AssetsColor[]} */
+  /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const allAssetsColors = assets.colors.get()
 
   if (!allAssetsColors.length) {
@@ -328,14 +320,14 @@ function drawAssetsColors (selection, documentRoot) {
 let configPanelDom, configPanelApp
 let _ddd
 function showPanelConfig (event) {
-  /** @type {AssetsColor[]} */
+  /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const allAssetsColors = sortColorNameList(assets.colors.get(), {
     transformElement: e => e.name || 'a00', // !name 就名字隨意讓裡面取得到職判斷就好
   })
   /** @desc key 為 colorName */
-  /** @type {Map<string, { origin: AssetsColor; shouldBlackText: boolean; colorCss?: string; gradientType?: 'linear' | 'radial' }>} */
+  /** @type {import('./type/common.d.ts').AllAssetsColors} */
   const allAssetsColorsMap = new Map()
-  /** @type {{ name: string; colorNameList: string[] }[]} */
+  /** @type {import('./type/common.d.ts').ColorGroupItem[]} */
   const defaultGroupList = [
     { name: '未分類', colorNameList: [] },
   ]
@@ -354,6 +346,7 @@ function showPanelConfig (event) {
       const { r, g, b, a } = color.toRgba()
       const percentAlpha = alphaToPercentage(a) / 100
       allAssetsColorsMap.set(colorName, {
+        colorName,
         origin: e,
         shouldBlackText: shouldUseBlackText(r, g, b, percentAlpha),
         colorCss: `rgba(${r}, ${g}, ${b}, ${percentAlpha})`,
@@ -376,6 +369,7 @@ function showPanelConfig (event) {
       })
 
       allAssetsColorsMap.set(colorName, {
+        colorName,
         origin: e,
         shouldBlackText: shouldUseBlackTextForGradient(shouldBlackTextCheckGradientStops),
         colorCss: colorCss + ')',
@@ -390,7 +384,9 @@ function showPanelConfig (event) {
     return
   }
 
+  /** @type {import('./type/vue2/vue.js').Vue} */
   const Vue = require('./lib/vue@2.7.16.min.cjs')
+  require('./component/vue/color-item.js')(Vue)
   const { name: documentFilename, guid: documentGuid } = application.activeDocument
 
   configPanelDom = document.createElement('div')
@@ -402,24 +398,22 @@ function showPanelConfig (event) {
     groupList: createValueStorage(storageName('group_list_v5'), defaultGroupList),
   }
   const vueData = {
-    isSelectionSomething: false,
-    /** @type {null | { fill: object; stroke: object; }} */
-    selectedXdItem: null,
+    /** @type {import('./type/common.d.ts').SelectedXdItem[]} */
+    selectedXdItemList: null,
     isCreatingGroup: false,
     inputGroupName: '',
-    /** @type {{ name: string; colorNameList: string[] }[]} */
+    /** @type {import('./type/common.d.ts').ColorGroupItem[]} */
     groupList: defaultGroupList,
     // groupList: storage.groupList.defaultValue,
     /** @type {Map<string, true>} */
     collapsedGroupNameMap: new Map(),
-    colorFullName: allAssetsColors.length ? allAssetsColors[0].name : '暫無',
   }
 
   vueData.groupList.forEach(e => {
     vueData.collapsedGroupNameMap.set(e.name, true)
   })
 
-  configPanelApp = new Vue({
+  configPanelApp = Vue.prototype.$cpApp = new Vue({
     el: '#config-panel',
     data: vueData,
     render(h) {
@@ -430,40 +424,6 @@ function showPanelConfig (event) {
       const baseLabelStyle = { style: { fontSize: 12, paddingLeft: basePL } }
 
       return h('div', { class: 'bel-app-scroll-view', style: { height: 'calc(100vh - 210px)', overflowY: 'auto' } }, [
-        h(
-          'div',
-          {
-            style: {
-              position: 'fixed',
-              left: 0,
-              bottom: 0,
-              width: '100%',
-            },
-          },
-          [
-            h('div', { style: { fontSize: 12, color: '#008DEB', marginBottom: 4 } }, '顏色完整名'),
-            h(
-              'div',
-              {
-                style: {
-                  backgroundColor: 'rgba(128, 208, 249, 0.1)',
-                  border: '1px solid #75C8FF',
-                  borderRadius: 4,
-                  width: '100%',
-                  height: 60,
-                  padding: 4,
-                  fontSize: 12,
-                  color: '#008DEB',
-                  webkitDisplay: 'box',
-                  webkitLineClamp: 2,
-                  webkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                },
-              },
-              vm.colorFullName,
-            ),
-          ],
-        ),
         // h(
         //   'select',
         //   {
@@ -561,7 +521,8 @@ function showPanelConfig (event) {
                             },
                           },
                         },
-                        isCollapsed ? '-' : '+'
+                        // isCollapsed ? '-' : '+'
+                        h('img', { attrs: { src: './img/chevron_right_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg' } })
                       ),
                       h('div', { style: { fontSize: 12 } }, name),
                     ]
@@ -570,90 +531,7 @@ function showPanelConfig (event) {
                   isCollapsed && !!colorNameList?.length && h(
                     'div',
                     { style: { display: 'flex', flexWrap: 'wrap', padding: '0 4px' } },
-                    colorNameList.map(colorName => {
-                      const { origin, shouldBlackText, colorCss } = allAssetsColorsMap.get(colorName)
-
-                      function handleClick (ev) {
-                        if (vm.isSelectionSomething) {
-                          const target = ev.target.closest('.bel-group-color-item')
-                          const rect = target.getBoundingClientRect()
-                          const centerY = rect.top + (rect.height / 2)
-                          const clickY = ev.clientY
-                          const changeItemKey = clickY < centerY ? 'fill' : 'stroke'
-
-                          if (origin.color) {
-                            application.editDocument(() => {
-                              vm.selectedXdItem[changeItemKey] = origin.color;
-                            })
-                          } else if (origin.gradientType && changeItemKey === 'fill') {
-                            const gradientColor = origin.gradientType === 'linear' ? new LinearGradient() : new RadialGradient()
-                            gradientColor.colorStops = origin.colorStops
-                            application.editDocument(() => {
-                              vm.selectedXdItem[changeItemKey] = gradientColor;
-                            })
-                          }
-                          return
-                        }
-                      }
-
-                      return h(
-                        'div',
-                        {
-                          class: 'bel-group-color-item',
-                          style: {
-                            position: 'relative',
-                            width: '25%',
-                            padding: '2',
-                            cursor: 'pointer',
-                          },
-                          on: {
-                            mouseenter() {
-                              vm.colorFullName = origin.name
-                            },
-                            click: handleClick,
-                          },
-                        },
-                        [
-                          h(
-                            'div',
-                            {
-                              style: {
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                paddingTop: '100%',
-                                background: colorCss
-                                  ? colorCss
-                                  : undefined,
-                                pointerEvents: 'none',
-                              },
-                            },
-                          ),
-                          h(
-                            'div',
-                            {
-                              style: {
-                                position: 'absolute',
-                                left: '50%',
-                                top: '50%',
-                                transform: 'translate(-50%, -50%)',
-                                width: '100%',
-                                textAlign: 'center',
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: shouldBlackText ? '#000000' : '#ffffff',
-                                padding: 4,
-                              },
-                              on: {
-                                click: handleClick,
-                              }
-                            },
-                            colorName,
-                          ),
-                        ]
-                      )
-                    })
+                    colorNameList.map(colorName => h('color-item', { props: { allAssetsColorsItem: allAssetsColorsMap.get(colorName) } }))
                   )
                 ],
               )
@@ -667,9 +545,7 @@ function showPanelConfig (event) {
 
 function updatePanelConfig (selection, documentRoot) {
   if (configPanelApp && configPanelApp._data) {
-    const isSelectionSomething = !!selection?.items.length
-    configPanelApp._data.isSelectionSomething = !!selection?.items.length
-    configPanelApp._data.selectedXdItem = isSelectionSomething ? selection.items[0] : null
+    configPanelApp._data.selectedXdItemList = !!selection?.items.length ? selection.items : []
   }
 
   _ddd = documentRoot
