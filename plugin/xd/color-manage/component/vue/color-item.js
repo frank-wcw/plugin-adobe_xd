@@ -15,7 +15,7 @@ function setupComponent(Vue) {
       selectedXdItemList,
     } = this.$cpApp._data
     const {
-      /** @type {import('../../type/common.d.ts').AllAssetsColors} */
+      /** @type {import('../../type/common.d.ts').AllAssetsColorsItem} */
       allAssetsColorsItem,
     } = this.$props
 
@@ -48,64 +48,37 @@ function setupComponent(Vue) {
     render(h) {
       const vm = this
       const {
-        /** @type {import('../../type/common.d.ts').AllAssetsColors} */
+        /** @type {import('../../type/common.d.ts').AllAssetsColorsItem} */
         allAssetsColorsItem,
       } = vm.$props
 
-      return h(
-        'div',
-        {
-          class: 'bel-group-color-item',
-          style: {
-            position: 'relative',
-            width: '25%',
-            padding: '2',
-            cursor: 'pointer',
-          },
-          on: {
-            click: handleClick.bind(vm),
-          },
-        },
-        [
-          h(
-            'div',
-            {
-              style: {
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingTop: '100%',
-                background: allAssetsColorsItem.colorCss
-                  ? allAssetsColorsItem.colorCss
-                  : undefined,
-                pointerEvents: 'none',
-              },
+      return h('div', { style: { display: 'flex', alignItems: 'center', padding: '4px 8px' } }, [
+        h(
+          'div',
+          {
+            style: {
+              width: 28,
+              minWidth: 28,
+              height: 28,
+              marginRight: 8,
+              background: allAssetsColorsItem.colorCss
+                ? allAssetsColorsItem.colorCss
+                : undefined,
+              border: '1px solid #000000',
             },
-          ),
-          h(
-            'div',
-            {
-              style: {
-                position: 'absolute',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '100%',
-                textAlign: 'center',
-                fontSize: 11,
-                fontWeight: 700,
-                color: allAssetsColorsItem.shouldBlackText ? '#000000' : '#ffffff',
-                padding: 4,
-              },
-              on: {
-                click: handleClick.bind(vm),
-              }
+          }
+        ),
+        h(
+          'div',
+          {
+            style: {
+              flex: 1,
+              fontSize: 12,
             },
-            allAssetsColorsItem.colorName,
-          ),
-        ]
-      )
+          },
+          allAssetsColorsItem.origin.name,
+        )
+      ])
     },
   })
 }

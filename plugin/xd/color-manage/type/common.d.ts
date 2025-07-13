@@ -27,13 +27,15 @@ export type AssetsColor = {
   colorStops?: ColorStop[] // 顏色停止點數組 (漸層才會有)
 }
 
-export type AllAssetsColors = Map<string, {
+export type AllAssetsColorsItem = {
   colorName: string
   origin: AssetsColor
-  shouldBlackText: boolean
+  isLightColor: boolean
   colorCss: string
   gradientType?: 'linear' | 'radial'
-}>
+}
+
+export type AllAssetsColors = Map<string, AllAssetsColorsItem>
 
 export type ColorGroupItem = {
   name: string

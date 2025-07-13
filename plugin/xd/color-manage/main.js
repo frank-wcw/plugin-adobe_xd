@@ -348,11 +348,11 @@ function showPanelConfig (event) {
       allAssetsColorsMap.set(colorName, {
         colorName,
         origin: e,
-        shouldBlackText: shouldUseBlackText(r, g, b, percentAlpha),
+        isLightColor: shouldUseBlackText(r, g, b, percentAlpha),
         colorCss: `rgba(${r}, ${g}, ${b}, ${percentAlpha})`,
       })
     } else if (gradientType) {
-      const shouldBlackTextCheckGradientStops = []
+      const isLightColorCheckGradientStops = []
       let colorCss = gradientType === 'linear' ? 'linear-gradient(to bottom' : 'radial-gradient(circle at center'
 
       colorStops.forEach(({ stop, color }) => {
@@ -360,7 +360,7 @@ function showPanelConfig (event) {
         const percentAlpha = alphaToPercentage(percentAlphaColor.a)
         percentAlphaColor.a = percentAlpha / 100
 
-        shouldBlackTextCheckGradientStops.push({
+        isLightColorCheckGradientStops.push({
           stop,
           color: percentAlphaColor,
         })
@@ -371,7 +371,7 @@ function showPanelConfig (event) {
       allAssetsColorsMap.set(colorName, {
         colorName,
         origin: e,
-        shouldBlackText: shouldUseBlackTextForGradient(shouldBlackTextCheckGradientStops),
+        isLightColor: shouldUseBlackTextForGradient(isLightColorCheckGradientStops),
         colorCss: colorCss + ')',
         gradientType,
       })
@@ -387,6 +387,7 @@ function showPanelConfig (event) {
   /** @type {import('./type/vue2/vue.js').Vue} */
   const Vue = require('./lib/vue@2.7.16.min.cjs')
   require('./component/vue/color-item.js')(Vue)
+
   const { name: documentFilename, guid: documentGuid } = application.activeDocument
 
   configPanelDom = document.createElement('div')
@@ -423,7 +424,8 @@ function showPanelConfig (event) {
       const basePR = 8
       const baseLabelStyle = { style: { fontSize: 12, paddingLeft: basePL } }
 
-      return h('div', { class: 'bel-app-scroll-view', style: { height: 'calc(100vh - 210px)', overflowY: 'auto' } }, [
+      // height: 'calc(100vh - 104px)' 可以滿高
+      return h('div', { class: 'bel-app-scroll-view' }, [
         // h(
         //   'select',
         //   {
@@ -521,17 +523,14 @@ function showPanelConfig (event) {
                             },
                           },
                         },
-                        // isCollapsed ? '-' : '+'
-                        h('img', { attrs: { src: './img/chevron_right_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg' } })
+                        isCollapsed ? '-' : '+',
                       ),
                       h('div', { style: { fontSize: 12 } }, name),
                     ]
                   ),
                   // group 顏色列表
-                  isCollapsed && !!colorNameList?.length && h(
-                    'div',
-                    { style: { display: 'flex', flexWrap: 'wrap', padding: '0 4px' } },
-                    colorNameList.map(colorName => h('color-item', { props: { allAssetsColorsItem: allAssetsColorsMap.get(colorName) } }))
+                  isCollapsed && !!colorNameList?.length && colorNameList.map(colorName =>
+                    h('color-item', { props: { allAssetsColorsItem: allAssetsColorsMap.get(colorName) } })
                   )
                 ],
               )
