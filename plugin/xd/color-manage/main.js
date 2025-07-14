@@ -235,17 +235,19 @@ function recursiveUpdateChildColorByImport (node, sameColorMap) {
 
 function assetsColorsToColorInfoMap () {
   const nameList = [
-    '[@group  : 群組名稱] [@ name :com1] [@color:#2e2e2e][@test:跳脫\\]測試]  [@D:應用於驚喜包(搶禮物) 區塊背景色][@test2:測試2',
-    '[@group:群組名稱][@name:com2][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:\\[跳脫\\]測試]',
-    '[@group:群組名稱][@name:spec3][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:跳脫]測試]',
-    '[@group:群組名稱][@name:a02][@description:應用於驚喜包(搶禮物) 區塊背景色][@color:#2e2e2e 0-#CBFF2E(90%) 1]',
-    '[@G:群組名稱][@N:a01][@C:#2e2e2e(20%)][@D:應用於驚喜包(搶禮物) 區塊背景色]',
+    '[@groupName  : 群組名稱][@groupSort:1] [@ name :com1] [@color:#2e2e2e][@test:跳脫\\]測試]  [@D:應用於驚喜包(搶禮物) 區塊背景色][@test2:測試2',
+    '[@groupName:群組名稱][@groupSort:1][@name:com2][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:\\[跳脫\\]測試]',
+    '[@groupName:群組名稱][@groupSort:1][@name:spec3][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:跳脫]測試]',
+    '[@groupName:群組名稱][@groupSort:1][@name:a02][@description:應用於驚喜包(搶禮物) 區塊背景色][@color:#2e2e2e 0-#CBFF2E(90%) 1][@gradientType:linear]',
+    '[@G:群組名稱][@GS:1][@N:a01][@C:#2e2e2e(20%)][@D:應用於驚喜包(搶禮物) 區塊背景色]',
   ]
   const simpleNameKeyMap = new Map()
-  simpleNameKeyMap.set('G', 'group')
-  simpleNameKeyMap.set('N', 'name')
-  simpleNameKeyMap.set('C', 'color')
-  simpleNameKeyMap.set('D', 'description')
+  simpleNameKeyMap.set('G', 'groupName') // 群組名稱
+  simpleNameKeyMap.set('GS', 'groupSort') // 群組排序
+  simpleNameKeyMap.set('N', 'name') // 顏色名
+  simpleNameKeyMap.set('C', 'color') // 最終非純色會被轉化成 colorStops
+  simpleNameKeyMap.set('CGT', 'gradientType') // 漸層類型
+  simpleNameKeyMap.set('D', 'description') // 描述
 
   const colorInfoMap = new Map()
   nameList.forEach(name => {
@@ -288,7 +290,7 @@ function assetsColorsToColorInfoMap () {
     if (kvMap.name) {
       const colors = kvMap.color.split('-')
       if (colors.length > 1) {
-        kvMap.colors = colors.map(e => {
+        kvMap.colorStops = colors.map(e => {
           const [m, hex, , opacity, stop] = e.match(/^(#[A-z0-9]+)(\((\d+)%\))?\s*([\d.]+)$/) || []
 
           if (!m) return null
@@ -300,7 +302,7 @@ function assetsColorsToColorInfoMap () {
           return result
         }).filter(e => e)
 
-        if (!kvMap.colors.length) {
+        if (!kvMap.colorStops.length) {
           console.warn(`略過了【${kvMap.name}】，漸層色的配置有問題 ${kvMap.color}`)
           return
         }
