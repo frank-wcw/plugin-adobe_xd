@@ -58,9 +58,9 @@ function setupComponent(Vue) {
           {
             style: {
               position: 'relative',
-              width: 28,
-              minWidth: 28,
-              height: 28,
+              width: 24,
+              minWidth: 24,
+              height: 24,
               marginRight: 8,
               border: '1px solid #c0c1cc',
               borderRadius: 3,
@@ -105,6 +105,9 @@ function setupComponent(Vue) {
             style: {
               flex: 1,
               fontSize: 12,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             },
           },
           allAssetsColorsItem.origin.name,
