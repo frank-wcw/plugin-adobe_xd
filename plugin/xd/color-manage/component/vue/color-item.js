@@ -57,16 +57,47 @@ function setupComponent(Vue) {
           'div',
           {
             style: {
+              position: 'relative',
               width: 28,
               minWidth: 28,
               height: 28,
               marginRight: 8,
-              background: allAssetsColorsItem.colorCss
-                ? allAssetsColorsItem.colorCss
-                : undefined,
-              border: '1px solid #000000',
+              border: '1px solid #c0c1cc',
+              borderRadius: 3,
+              overflow: 'hidden',
             },
-          }
+          },
+          [
+            h(
+              'img',
+              {
+                style: {
+                  position: 'absolute',
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '36px',
+                  height: '36px',
+                },
+                attrs: { src: '/img/bg_transparent_grid.png' },
+              },
+            ),
+            h(
+              'div',
+              {
+                style: {
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: '100%',
+                  height: '100%',
+                  background: allAssetsColorsItem.colorCss
+                    ? allAssetsColorsItem.colorCss
+                    : undefined,
+                },
+              },
+            ),
+          ]
         ),
         h(
           'div',
