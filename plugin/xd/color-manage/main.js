@@ -136,52 +136,6 @@ async function importAssetsColors(selection, documentRoot
   }
 }
 
-function recursiveUpdateChildColorByImport (node, sameColorMap) {
-  node.children.forEach(e => {
-    if (e instanceof SymbolInstance) return
-    if (e.isContainer) return recursiveUpdateChildColorByImport(e, sameColorMap)
-
-    if (e.fill != null) {
-      if (e.fill instanceof Color) {
-        const newColor = sameColorMap.get(colorToKey(e.fill))
-        if (newColor) e.fill = newColor
-      } else if (e.fill instanceof LinearGradient || e.fill instanceof RadialGradient) {
-        const newColor = sameColorMap.get(gradientLinearToKey(e.fill))
-        if (newColor) {
-          if (newColor instanceof Color) {
-            e.fill = newColor
-          } else {
-            const newGradient = e.fill.clone()
-            newGradient.colorStops = newColor.colorStops
-            e.fill = newGradient
-          }
-        }
-      }
-    }
-
-    if (e.stroke != null) {
-      if (e.stroke instanceof Color) {
-        const newColor = sameColorMap.get(colorToKey(e.stroke))
-        if (newColor) e.stroke = newColor
-      }
-    }
-
-    recursiveUpdateChildColorByImport(e, sameColorMap)
-  })
-}
-
-function gradientLinearToKey (color) {
-  return color.colorStops.map(e => `${colorToKey(e.color)}${e.stop}`).join('')
-}
-
-function colorToKey (color) {
-  return `${color.toHex(true).toLowerCase()}${color.a ? color.a : 255}`
-}
-
-function toColorDescName (hex, opacity) {
-  return `${hex}${opacity ? `(${opacity * 100}%)` : ''}`
-}
-
 async function exportAssetsColors () {
   /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const allAssetsColors = assets.colors.get()
@@ -243,6 +197,147 @@ async function exportAssetsColors () {
 
     await file.write(resultJsonString)
   }
+}
+
+function recursiveUpdateChildColorByImport (node, sameColorMap) {
+  node.children.forEach(e => {
+    if (e instanceof SymbolInstance) return
+    if (e.isContainer) return recursiveUpdateChildColorByImport(e, sameColorMap)
+
+    if (e.fill != null) {
+      if (e.fill instanceof Color) {
+        const newColor = sameColorMap.get(colorToKey(e.fill))
+        if (newColor) e.fill = newColor
+      } else if (e.fill instanceof LinearGradient || e.fill instanceof RadialGradient) {
+        const newColor = sameColorMap.get(gradientLinearToKey(e.fill))
+        if (newColor) {
+          if (newColor instanceof Color) {
+            e.fill = newColor
+          } else {
+            const newGradient = e.fill.clone()
+            newGradient.colorStops = newColor.colorStops
+            e.fill = newGradient
+          }
+        }
+      }
+    }
+
+    if (e.stroke != null) {
+      if (e.stroke instanceof Color) {
+        const newColor = sameColorMap.get(colorToKey(e.stroke))
+        if (newColor) e.stroke = newColor
+      }
+    }
+
+    recursiveUpdateChildColorByImport(e, sameColorMap)
+  })
+}
+
+function assetsColorsToColorInfoMap () {
+  const nameList = [
+    '[@group  : 群組名稱] [@ name :com1] [@color:#2e2e2e][@test:跳脫\\]測試]  [@D:應用於驚喜包(搶禮物) 區塊背景色][@test2:測試2',
+    '[@group:群組名稱][@name:com2][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:\\[跳脫\\]測試]',
+    '[@group:群組名稱][@name:spec3][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:跳脫]測試]',
+    '[@group:群組名稱][@name:a02][@description:應用於驚喜包(搶禮物) 區塊背景色][@color:#2e2e2e 0-#CBFF2E(90%) 1]',
+    '[@G:群組名稱][@N:a01][@C:#2e2e2e(20%)][@D:應用於驚喜包(搶禮物) 區塊背景色]',
+  ]
+  const simpleNameKeyMap = new Map()
+  simpleNameKeyMap.set('G', 'group')
+  simpleNameKeyMap.set('N', 'name')
+  simpleNameKeyMap.set('C', 'color')
+  simpleNameKeyMap.set('D', 'description')
+
+  const colorInfoMap = new Map()
+  nameList.forEach(name => {
+    const kvMap = {}
+    let sbBeginIdx = -1 // [
+    let keyBeginIdx = sbBeginIdx // @x
+    let keyEndIdx = sbBeginIdx // x:
+    let isEscape = false // \\
+
+    for (let i = 0; i < name.length; i++) {
+      if (name[i] === '\\') {
+        isEscape = true
+        continue
+      }
+      if (isEscape) {
+        isEscape = false
+        continue
+      }
+      if (name[i] === '[') sbBeginIdx = i
+      if (sbBeginIdx > -1) {
+        if (name[i] === ']') {
+          const key = name.substring(keyBeginIdx, keyEndIdx + 1).trim()
+          kvMap[simpleNameKeyMap.get(key) || key] = name.substring(keyEndIdx + 2, i).trim()
+          sbBeginIdx = -1
+          keyBeginIdx=-1
+          keyEndIdx=-1
+        }
+        else if (i === sbBeginIdx + 1) {
+          if (name[i] !== '@') {
+            sbBeginIdx = -1
+          } else {
+            keyBeginIdx = i + 1
+          }
+        } else if (keyEndIdx === -1 && keyBeginIdx > sbBeginIdx && name[i] === ':') {
+          keyEndIdx = i - 1
+        }
+      }
+    }
+
+    if (kvMap.name) {
+      const colors = kvMap.color.split('-')
+      if (colors.length > 1) {
+        kvMap.colors = colors.map(e => {
+          const [m, hex, , opacity, stop] = e.match(/^(#[A-z0-9]+)(\((\d+)%\))?\s*([\d.]+)$/) || []
+
+          if (!m) return null
+
+          const result = { stop: Number(stop), hex }
+
+          if (opacity != null) result.opacity = Number(opacity) / 100
+
+          return result
+        }).filter(e => e)
+
+        if (!kvMap.colors.length) {
+          console.warn(`略過了【${kvMap.name}】，漸層色的配置有問題 ${kvMap.color}`)
+          return
+        }
+
+        delete kvMap.color
+        colorInfoMap.set(kvMap.name, kvMap)
+      } else {
+        const [m, hex, , opacity] = kvMap.color.match(/^(#[A-z0-9]+)(\((\d+)%\))?$/) || []
+
+        if (!m) {
+          console.warn(`略過了【${kvMap.name}】，純色的配置有問題 ${kvMap.color}`)
+          return
+        }
+
+        kvMap.color = hex
+        if (opacity != null) kvMap.opacity = Number(opacity) / 100
+
+        colorInfoMap.set(kvMap.name, kvMap)
+      }
+    } else {
+      console.warn(`略過了【${name}】，匹配不到 key-name`)
+    }
+  })
+
+  return colorInfoMap
+}
+
+function gradientLinearToKey (color) {
+  return color.colorStops.map(e => `${colorToKey(e.color)}${e.stop}`).join('')
+}
+
+function colorToKey (color) {
+  return `${color.toHex(true).toLowerCase()}${color.a ? color.a : 255}`
+}
+
+function toColorDescName (hex, opacity) {
+  return `${hex}${opacity ? `(${opacity * 100}%)` : ''}`
 }
 
 function copyUnoAssetsColors() {
