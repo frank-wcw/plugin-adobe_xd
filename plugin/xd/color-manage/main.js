@@ -18,6 +18,91 @@ const {
   updateVueStorageData,
 } = require('./helper/v1')
 
+const simpleToComplexNameKeyMap = new Map()
+const complexToSimpleNameKeyMap = new Map()
+
+// 群組名稱
+simpleToComplexNameKeyMap.set('G', 'groupName')
+complexToSimpleNameKeyMap.set('groupName', 'G')
+// 群組排序
+simpleToComplexNameKeyMap.set('GS', 'groupSort')
+complexToSimpleNameKeyMap.set('groupSort', 'GS')
+// 顏色名
+simpleToComplexNameKeyMap.set('N', 'name')
+complexToSimpleNameKeyMap.set('name', 'N')
+// 最終非純色會被轉化成 colorStops
+simpleToComplexNameKeyMap.set('C', 'color')
+complexToSimpleNameKeyMap.set('color', 'C')
+// 漸層類型
+simpleToComplexNameKeyMap.set('CGT', 'gradientType')
+complexToSimpleNameKeyMap.set('gradientType', 'CGT')
+// 描述
+simpleToComplexNameKeyMap.set('D', 'description')
+complexToSimpleNameKeyMap.set('description', 'D')
+
+function transformOldAssetsColorsToPluginType () {
+  /** @type {import('./type/common.d.ts').AssetsColor[]} */
+  const allAssetsColors = assets.colors.get()
+
+  if (!allAssetsColors.length) {
+    showAlert('assets 沒有任一顏色，請嘗試添加顏色以轉換顏色配置')
+    return
+  }
+
+  const noMatchNameList = []
+  const changeColorList = []
+  allAssetsColors.forEach(e => {
+    const [_, colorName, color, desc] = e.name?.match(/^([A-z]+\d+)號色\s*(.+\S)\s*-\s*(.+)$/) || []
+
+    if (!colorName) {
+      noMatchNameList.push(e.name)
+      return
+    }
+
+    const nameKeyObj = {
+      groupName: '未分類',
+      groupSort: 1,
+      description: desc,
+      name: colorName,
+    }
+    const colors = color.split('-')
+
+    if (!colors.length) return
+    if (colors.length === 1) {
+      nameKeyObj.color = color
+    } else if (Array.isArray(e.colorStops) && colors.length === e.colorStops.length) {
+      nameKeyObj.color = colors.map((f, j) => `${f.trim()} ${e.colorStops[j].stop}`).join('-')
+      nameKeyObj.gradientType = 'linear'
+    }
+
+    changeColorList.push({
+      old: e,
+      new: {
+        ...e,
+        name: transformObjToNameKey(nameKeyObj),
+      }
+    })
+  })
+
+  changeColorList.forEach(e => {
+    assets.colors.delete(e.old)
+    assets.colors.add(e.new)
+  })
+
+  if (noMatchNameList.length) {
+    showAlert(`${noMatchNameList.join('\n')}\n這些顏色匹配格式失敗，請自行替換`)
+  }
+}
+
+function transformObjToNameKey (obj, isToSimple = true) {
+  let result = ''
+  const keyMap = isToSimple ? complexToSimpleNameKeyMap : simpleToComplexNameKeyMap
+  for (let k in obj) {
+    result += `[@${keyMap.get(k)}:${obj[k]}]`
+  }
+  return result
+}
+
 async function importAssetsColors(selection, documentRoot
 ) {
   const aFile = await fs.getFileForOpening({ types: ["json"] })
@@ -128,7 +213,7 @@ async function importAssetsColors(selection, documentRoot
     })
 
     if (addColors.length) {
-      console.log(`已新增或調整了 ${assets.colors.add(addColors)} 筆色號`)
+      showAlert(`已新增或調整了 ${assets.colors.add(addColors)} 筆色號`)
     }
   } catch (error) {
     showAlert(`元素顏色轉換時出現錯誤 (${error.message})`)
@@ -241,13 +326,6 @@ function assetsColorsToColorInfoMap () {
     '[@groupName:群組名稱][@groupSort:1][@name:a02][@description:應用於驚喜包(搶禮物) 區塊背景色][@color:#2e2e2e 0-#CBFF2E(90%) 1][@gradientType:linear]',
     '[@G:群組名稱][@GS:1][@N:a01][@C:#2e2e2e(20%)][@D:應用於驚喜包(搶禮物) 區塊背景色]',
   ]
-  const simpleNameKeyMap = new Map()
-  simpleNameKeyMap.set('G', 'groupName') // 群組名稱
-  simpleNameKeyMap.set('GS', 'groupSort') // 群組排序
-  simpleNameKeyMap.set('N', 'name') // 顏色名
-  simpleNameKeyMap.set('C', 'color') // 最終非純色會被轉化成 colorStops
-  simpleNameKeyMap.set('CGT', 'gradientType') // 漸層類型
-  simpleNameKeyMap.set('D', 'description') // 描述
 
   const colorInfoMap = new Map()
   nameList.forEach(name => {
@@ -270,10 +348,10 @@ function assetsColorsToColorInfoMap () {
       if (sbBeginIdx > -1) {
         if (name[i] === ']') {
           const key = name.substring(keyBeginIdx, keyEndIdx + 1).trim()
-          kvMap[simpleNameKeyMap.get(key) || key] = name.substring(keyEndIdx + 2, i).trim()
+          kvMap[simpleToComplexNameKeyMap.get(key) || key] = name.substring(keyEndIdx + 2, i).trim()
           sbBeginIdx = -1
-          keyBeginIdx=-1
-          keyEndIdx=-1
+          keyBeginIdx = -1
+          keyEndIdx = -1
         }
         else if (i === sbBeginIdx + 1) {
           if (name[i] !== '@') {
@@ -289,6 +367,7 @@ function assetsColorsToColorInfoMap () {
 
     if (kvMap.name) {
       const colors = kvMap.color.split('-')
+
       if (colors.length > 1) {
         kvMap.colorStops = colors.map(e => {
           const [m, hex, , opacity, stop] = e.match(/^(#[A-z0-9]+)(\((\d+)%\))?\s*([\d.]+)$/) || []
@@ -656,6 +735,7 @@ module.exports = {
   },
   commands: {
     copyUnoAssetsColors,
+    transformOldAssetsColorsToPluginType,
     importAssetsColors,
     exportAssetsColors,
     drawAssetsColors,

@@ -18,8 +18,8 @@
     },
     {
       "type": "menu",
-      "label": "Copy to Uno color object",
-      "commandId": "copyUnoAssetsColors"
+      "label": "將 assets 名字格式轉換成插件格式(首次用時才用)",
+      "commandId": "transformOldAssetsColorsToPluginType"
     },
     {
       "type": "menu",
@@ -30,6 +30,11 @@
       "type": "menu",
       "label": "匯出",
       "commandId": "exportAssetsColors"
+    },
+    {
+      "type": "menu",
+      "label": "Copy to Uno color object",
+      "commandId": "copyUnoAssetsColors"
     }
   ]
 }
