@@ -40,6 +40,9 @@ complexToSimpleNameKeyMap.set('gradientType', 'CGT')
 simpleToComplexNameKeyMap.set('D', 'description')
 complexToSimpleNameKeyMap.set('description', 'D')
 
+const simpleNameKeySortList = ['GS', 'G', 'N', 'D', 'C', 'CGT']
+const complexNameKeySortList = simpleNameKeySortList.map(e => simpleToComplexNameKeyMap.get(e))
+
 // test data
 // const nameList = [
 //   '[@groupName  : 群組名稱][@groupSort:1] [@ name :com1] [@color:#2e2e2e][@test:跳脫\\]測試]  [@D:應用於驚喜包(搶禮物) 區塊背景色][@test2:測試2',
@@ -111,9 +114,14 @@ function transformOldAssetsColorsToPluginType () {
 function transformObjToNameKey (obj, isToSimple = true) {
   let result = ''
   const keyMap = isToSimple ? complexToSimpleNameKeyMap : simpleToComplexNameKeyMap
-  for (let k in obj) {
+  const keyNameSortList = isToSimple ? complexNameKeySortList : simpleNameKeySortList
+
+  for (let i = 0; i < keyNameSortList.length; i++) {
+    const k = keyNameSortList[i]
+    if (obj[k] == null) continue
     result += `[@${keyMap.get(k)}:${obj[k]}]`
   }
+
   return result
 }
 
@@ -350,7 +358,8 @@ function assetsColorsToColorInfoMap (nameList, tap) {
       return
     }
 
-    /** @type {import('./type/common.d.ts').MyAssetColor} */
+    /** @desc 類型會有為落差，懶得申明主要是 color 哈
+     * @type {import('./type/common.d.ts').MyAssetColor} */
     const kvMap = {}
     let sbBeginIdx = -1 // [
     let keyBeginIdx = sbBeginIdx // @x
