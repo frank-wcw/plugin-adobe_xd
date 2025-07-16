@@ -13,28 +13,28 @@
   "uiEntryPoints": [
     {
       "type": "panel",
-      "label": "群組配置 (建置中)",
+      "label": "(建置中) 群組配置",
       "panelId": "panelConfig"
     },
     {
       "type": "menu",
-      "label": "將 assets 名字格式轉換成插件格式(首次用時才用)",
+      "label": "(首次用時才用) 將 assets 名字格式轉換成插件格式",
       "commandId": "transformOldAssetsColorsToPluginType"
     },
     {
       "type": "menu",
-      "label": "導入",
-      "commandId": "importAssetsColors"
+      "label": "(舊版) 導入",
+      "commandId": "importOldAssetsColors"
     },
     {
       "type": "menu",
-      "label": "匯出",
-      "commandId": "exportAssetsColors"
+      "label": "(舊版) 匯出",
+      "commandId": "exportOldAssetsColors"
     },
     {
       "type": "menu",
-      "label": "Copy to Uno color object",
-      "commandId": "copyUnoAssetsColors"
+      "label": "(舊版) Copy to Uno color object",
+      "commandId": "copyOldUnoAssetsColors"
     }
   ]
 }

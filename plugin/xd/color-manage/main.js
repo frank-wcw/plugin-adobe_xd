@@ -103,7 +103,7 @@ function transformObjToNameKey (obj, isToSimple = true) {
   return result
 }
 
-async function importAssetsColors(selection, documentRoot
+async function importOldAssetsColors(selection, documentRoot
 ) {
   const aFile = await fs.getFileForOpening({ types: ["json"] })
   if (!aFile) return
@@ -221,7 +221,7 @@ async function importAssetsColors(selection, documentRoot
   }
 }
 
-async function exportAssetsColors () {
+async function exportOldAssetsColors () {
   /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const allAssetsColors = assets.colors.get()
 
@@ -421,7 +421,7 @@ function toColorDescName (hex, opacity) {
   return `${hex}${opacity ? `(${opacity * 100}%)` : ''}`
 }
 
-function copyUnoAssetsColors() {
+function copyOldUnoAssetsColors() {
   /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const allAssetsColors = assets.colors.get()
 
@@ -467,7 +467,7 @@ function copyUnoAssetsColors() {
 
 function toUnoColorValue (color) {
   const hexColor = color.toHex(true)
-  if (!color.a || color.a === 255) return `'${hexColor}'`
+  if (color.a == null || color.a === 255) return `'${hexColor}'`
   return `rgba('${hexColor}', ${alphaToPercentage(color.a) / 100})`
 }
 
@@ -734,10 +734,10 @@ module.exports = {
     },
   },
   commands: {
-    copyUnoAssetsColors,
+    copyOldUnoAssetsColors,
     transformOldAssetsColorsToPluginType,
-    importAssetsColors,
-    exportAssetsColors,
+    importOldAssetsColors,
+    exportOldAssetsColors,
     drawAssetsColors,
   },
 }
