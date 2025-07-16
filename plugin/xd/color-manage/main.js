@@ -74,24 +74,16 @@ function transformOldAssetsColorsToPluginType () {
       description: desc.replace(/([\[\]])/g, '\\$1'),
       name: colorName,
     }
-    const colors = color.split('-')
 
-    if (!colors.length) return
-    if (colors.length === 1) {
-      if (Array.isArray(e.colorStops)) {
-        noMatchNameList.push(e.name)
-        return
-      }
-
-      nameKeyObj.color = color.replace(/\s/g, '')
+    if (e.gradientType) {
+      nameKeyObj.gradientType = e.gradientType
+      nameKeyObj.color = e.colorStops.map(f => {
+        const hex = f.color.toHex(true)
+        return `${hex}${f.color.a === 0 ? '(0%)' : f.color.a < 255 ? `(${alphaToPercentage(f.color.a)}%)` : ''} ${f.stop}`
+      }).join('-')
     } else {
-      if (!Array.isArray(e.colorStops)) {
-        noMatchNameList.push(e.name)
-        return
-      }
-
-      nameKeyObj.color = colors.map((f, j) => `${f.replace(/\s/g, '')} ${e.colorStops[j].stop}`).join('-')
-      nameKeyObj.gradientType = 'linear'
+      const hex = e.color.toHex(true)
+      nameKeyObj.color = `${hex}${e.color.a === 0 ? '(0%)' : e.color.a < 255 ? `(${alphaToPercentage(e.color.a)}%)` : ''}`
     }
 
     changeColorList.push({
@@ -413,6 +405,7 @@ function assetsColorsToColorInfoMap (nameList, tap) {
 
         if (!kvMap.colorStops.length) {
           console.warn(`略過了【${kvMap.name}】，漸層色的配置有問題 ${kvMap.color}`)
+          skipIdxList.push(i)
           return
         }
 
@@ -423,6 +416,7 @@ function assetsColorsToColorInfoMap (nameList, tap) {
 
         if (!m) {
           console.warn(`略過了【${kvMap.name}】，純色的配置有問題 ${kvMap.color}`)
+          skipIdxList.push(i)
           return
         }
 
@@ -537,7 +531,7 @@ function copyUnoAssetsColors() {
   ${colorText}
 }`)
 
-  showAlert(`顏色已成功複製到剪貼簿！${skipIdxList.length ? `(但略過了${skipIdxList.length}筆色號未成功複製)` : ''}`)
+  showAlert(`顏色共${allAssetsColors.length}筆已成功複製到剪貼簿！${skipIdxList.length ? `(但略過了${skipIdxList.length}筆色號未成功複製)` : ''}`)
 }
 
 function toOldUnoColorValue (color) {
