@@ -41,3 +41,21 @@ export type ColorGroupItem = {
   name: string
   colorNameList: string[]
 }
+
+export type MyColorStop = {
+  stop: number
+  hex: string
+  opacity?: number
+}
+
+// 轉化成 [@xxx:xxx] name 的 parse 後的 obj
+export type MyAssetColor = {
+  groupName: string
+  groupSort: number
+  name: string // 就是 colorName
+  hex?: string // color 純色會轉這
+  opacity?: number // color 純色會有
+  gradientType?: GradientType // color 漸層會有
+  colorStops?: MyColorStop[] // color 漸層會有
+  description: string
+}

@@ -18,6 +18,11 @@
     },
     {
       "type": "menu",
+      "label": "Copy to Uno color object",
+      "commandId": "copyUnoAssetsColors"
+    },
+    {
+      "type": "menu",
       "label": "(首次用時才用) 將 assets 名字格式轉換成插件格式",
       "commandId": "transformOldAssetsColorsToPluginType"
     },

@@ -40,6 +40,15 @@ complexToSimpleNameKeyMap.set('gradientType', 'CGT')
 simpleToComplexNameKeyMap.set('D', 'description')
 complexToSimpleNameKeyMap.set('description', 'D')
 
+// test data
+// const nameList = [
+//   '[@groupName  : 群組名稱][@groupSort:1] [@ name :com1] [@color:#2e2e2e][@test:跳脫\\]測試]  [@D:應用於驚喜包(搶禮物) 區塊背景色][@test2:測試2',
+//   '[@groupName:群組名稱][@groupSort:1][@name:com2][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:\\[跳脫\\]測試]',
+//   '[@groupName:群組名稱][@groupSort:1][@name:spec3][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:跳脫]測試]',
+//   '[@groupName:群組名稱][@groupSort:1][@name:a02][@description:應用於驚喜包(搶禮物) 區塊背景色][@color:#2e2e2e 0-#CBFF2E(90%) 1][@gradientType:linear]',
+//   '[@G:群組名稱][@GS:1][@N:a01][@C:#2e2e2e(20%)][@D:應用於驚喜包(搶禮物) 區塊背景色]',
+// ]
+
 function transformOldAssetsColorsToPluginType () {
   /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const allAssetsColors = assets.colors.get()
@@ -52,7 +61,7 @@ function transformOldAssetsColorsToPluginType () {
   const noMatchNameList = []
   const changeColorList = []
   allAssetsColors.forEach(e => {
-    const [_, colorName, color, desc] = e.name?.match(/^([A-z]+\d+)號色\s*(.+\S)\s*-\s*(.+)$/) || []
+    const [_, colorName, color, desc] = e.name?.match(/^([A-z]+\d+)號色\s*(#.+)\s-\s(.+)$/) || []
 
     if (!colorName) {
       noMatchNameList.push(e.name)
@@ -62,16 +71,26 @@ function transformOldAssetsColorsToPluginType () {
     const nameKeyObj = {
       groupName: '未分類',
       groupSort: 1,
-      description: desc,
+      description: desc.replace(/([\[\]])/g, '\\$1'),
       name: colorName,
     }
     const colors = color.split('-')
 
     if (!colors.length) return
     if (colors.length === 1) {
-      nameKeyObj.color = color
-    } else if (Array.isArray(e.colorStops) && colors.length === e.colorStops.length) {
-      nameKeyObj.color = colors.map((f, j) => `${f.trim()} ${e.colorStops[j].stop}`).join('-')
+      if (Array.isArray(e.colorStops)) {
+        noMatchNameList.push(e.name)
+        return
+      }
+
+      nameKeyObj.color = color.replace(/\s/g, '')
+    } else {
+      if (!Array.isArray(e.colorStops)) {
+        noMatchNameList.push(e.name)
+        return
+      }
+
+      nameKeyObj.color = colors.map((f, j) => `${f.replace(/\s/g, '')} ${e.colorStops[j].stop}`).join('-')
       nameKeyObj.gradientType = 'linear'
     }
 
@@ -84,14 +103,17 @@ function transformOldAssetsColorsToPluginType () {
     })
   })
 
+  if (noMatchNameList.length) {
+    const max = 10
+    const isExtraMax = noMatchNameList.length > max
+    showAlert(`${noMatchNameList.slice(0, max).join('\n')}\n${isExtraMax ? `...等${noMatchNameList.length - max}筆\n` : ''}這些顏色匹配格式失敗，請自行編輯後重新嘗試`)
+    return
+  }
+
   changeColorList.forEach(e => {
     assets.colors.delete(e.old)
     assets.colors.add(e.new)
   })
-
-  if (noMatchNameList.length) {
-    showAlert(`${noMatchNameList.join('\n')}\n這些顏色匹配格式失敗，請自行替換`)
-  }
 }
 
 function transformObjToNameKey (obj, isToSimple = true) {
@@ -318,25 +340,33 @@ function recursiveUpdateChildColorByImport (node, sameColorMap) {
   })
 }
 
-function assetsColorsToColorInfoMap () {
-  const nameList = [
-    '[@groupName  : 群組名稱][@groupSort:1] [@ name :com1] [@color:#2e2e2e][@test:跳脫\\]測試]  [@D:應用於驚喜包(搶禮物) 區塊背景色][@test2:測試2',
-    '[@groupName:群組名稱][@groupSort:1][@name:com2][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:\\[跳脫\\]測試]',
-    '[@groupName:群組名稱][@groupSort:1][@name:spec3][@color:#2e2e2e][@description:應用於驚喜包(搶禮物) 區塊背景色][@test:跳脫]測試]',
-    '[@groupName:群組名稱][@groupSort:1][@name:a02][@description:應用於驚喜包(搶禮物) 區塊背景色][@color:#2e2e2e 0-#CBFF2E(90%) 1][@gradientType:linear]',
-    '[@G:群組名稱][@GS:1][@N:a01][@C:#2e2e2e(20%)][@D:應用於驚喜包(搶禮物) 區塊背景色]',
-  ]
-
+/**
+ * @param nameList {string[]|{name:string}[]}
+ * @param tap {(el: import('./type/common.d.ts').MyAssetColor | null, i: number) => void}
+ * @returns {{map: Map<string, import('./type/common.d.ts').MyAssetColor>, skipIdxList: number[]}}
+ */
+function assetsColorsToColorInfoMap (nameList, tap) {
   const colorInfoMap = new Map()
-  nameList.forEach(name => {
+  const skipIdxList = []
+
+  nameList.forEach((e, i) => {
+    const name = typeof e === 'string' ? e : e.name
+
+    if (!name) {
+      skipIdxList.push(i)
+      tap?.(null, i)
+      return
+    }
+
+    /** @type {import('./type/common.d.ts').MyAssetColor} */
     const kvMap = {}
     let sbBeginIdx = -1 // [
     let keyBeginIdx = sbBeginIdx // @x
     let keyEndIdx = sbBeginIdx // x:
     let isEscape = false // \\
 
-    for (let i = 0; i < name.length; i++) {
-      if (name[i] === '\\') {
+    for (let j = 0; j < name.length; j++) {
+      if (name[j] === '\\') {
         isEscape = true
         continue
       }
@@ -344,28 +374,28 @@ function assetsColorsToColorInfoMap () {
         isEscape = false
         continue
       }
-      if (name[i] === '[') sbBeginIdx = i
+      if (name[j] === '[') sbBeginIdx = j
       if (sbBeginIdx > -1) {
-        if (name[i] === ']') {
+        if (name[j] === ']') {
           const key = name.substring(keyBeginIdx, keyEndIdx + 1).trim()
-          kvMap[simpleToComplexNameKeyMap.get(key) || key] = name.substring(keyEndIdx + 2, i).trim()
+          kvMap[simpleToComplexNameKeyMap.get(key) || key] = name.substring(keyEndIdx + 2, j).trim()
           sbBeginIdx = -1
           keyBeginIdx = -1
           keyEndIdx = -1
         }
-        else if (i === sbBeginIdx + 1) {
-          if (name[i] !== '@') {
+        else if (j === sbBeginIdx + 1) {
+          if (name[j] !== '@') {
             sbBeginIdx = -1
           } else {
-            keyBeginIdx = i + 1
+            keyBeginIdx = j + 1
           }
-        } else if (keyEndIdx === -1 && keyBeginIdx > sbBeginIdx && name[i] === ':') {
-          keyEndIdx = i - 1
+        } else if (keyEndIdx === -1 && keyBeginIdx > sbBeginIdx && name[j] === ':') {
+          keyEndIdx = j - 1
         }
       }
     }
 
-    if (kvMap.name) {
+    if (kvMap.name && kvMap.color) {
       const colors = kvMap.color.split('-')
 
       if (colors.length > 1) {
@@ -396,17 +426,25 @@ function assetsColorsToColorInfoMap () {
           return
         }
 
-        kvMap.color = hex
+        kvMap.hex = hex
         if (opacity != null) kvMap.opacity = Number(opacity) / 100
 
+        delete kvMap.color
         colorInfoMap.set(kvMap.name, kvMap)
       }
+
+      tap?.(kvMap, i)
     } else {
-      console.warn(`略過了【${name}】，匹配不到 key-name`)
+      console.warn(`略過了【${name}】，匹配不到 key-name 或是 key-color`)
+      skipIdxList.push(i)
+      tap?.(null, i)
     }
   })
 
-  return colorInfoMap
+  return {
+    map: colorInfoMap,
+    skipIdxList,
+  }
 }
 
 function gradientLinearToKey (color) {
@@ -442,11 +480,11 @@ function copyOldUnoAssetsColors() {
     if (!colorName) return
 
     if (color) {
-      copyTextList.push(`${colorName}: ${toUnoColorValue(color)}, // ${name}`)
+      copyTextList.push(`${colorName}: ${toOldUnoColorValue(color)}, // ${name}`)
     } else if (gradientType) {
       colorStops.forEach((f, i) => {
         const { color } = f
-        copyTextList.push(`${colorName}_${i + 1}: ${toUnoColorValue(color)}, // ${name}`)
+        copyTextList.push(`${colorName}_${i + 1}: ${toOldUnoColorValue(color)}, // ${name}`)
       })
     }
   })
@@ -465,10 +503,55 @@ function copyOldUnoAssetsColors() {
   showAlert('顏色已成功複製到剪貼簿！')
 }
 
-function toUnoColorValue (color) {
+function copyUnoAssetsColors() {
+  /** @type {import('./type/common.d.ts').AssetsColor[]} */
+  const allAssetsColors = assets.colors.get()
+
+  if (!allAssetsColors.length) {
+    showAlert('assets 沒有任一顏色，嘗試添加顏色以嘗試複製功能')
+    return
+  }
+
+  const copyTextList = []
+
+  const { skipIdxList } = assetsColorsToColorInfoMap(allAssetsColors, e => {
+    if (!e) return
+
+    if (e.hex) {
+      copyTextList.push(`${e.name}: ${toUnoColorValue(e)}, // ${e.description}`)
+    } else if (e.colorStops) {
+      e.colorStops.forEach((f, i) => {
+        copyTextList.push(`${e.name}_${i + 1}: ${toUnoColorValue(f)}, // ${e.description}`)
+      })
+    }
+  })
+
+  if (!copyTextList.length) {
+    showAlert('未匹配到任何可以複製的顏色！')
+    return
+  }
+
+  const colorText = sortColorNameList(copyTextList).join('\n  ')
+
+  clipboard.copyText(`{
+  ${colorText}
+}`)
+
+  showAlert(`顏色已成功複製到剪貼簿！${skipIdxList.length ? `(但略過了${skipIdxList.length}筆色號未成功複製)` : ''}`)
+}
+
+function toOldUnoColorValue (color) {
   const hexColor = color.toHex(true)
   if (color.a == null || color.a === 255) return `'${hexColor}'`
   return `rgba('${hexColor}', ${alphaToPercentage(color.a) / 100})`
+}
+
+/**
+ * @param color {{hex: string; opacity?: number; stop?: number}}
+ */
+function toUnoColorValue (color) {
+  if (color.opacity != null) return `rgba('${color.hex}', ${color.opacity})`
+  return `'${color.hex}'`
 }
 
 function drawAssetsColors (selection, documentRoot) {
@@ -735,6 +818,7 @@ module.exports = {
   },
   commands: {
     copyOldUnoAssetsColors,
+    copyUnoAssetsColors,
     transformOldAssetsColorsToPluginType,
     importOldAssetsColors,
     exportOldAssetsColors,
