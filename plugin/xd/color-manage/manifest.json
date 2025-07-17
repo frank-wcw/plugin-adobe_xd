@@ -23,6 +23,16 @@
     },
     {
       "type": "menu",
+      "label": "導入",
+      "commandId": "importAssetsColors"
+    },
+    {
+      "type": "menu",
+      "label": "匯出",
+      "commandId": "exportAssetsColors"
+    },
+    {
+      "type": "menu",
       "label": "(首次用時才用) 將 assets 名字格式轉換成插件格式",
       "commandId": "transformOldAssetsColorsToPluginType"
     },

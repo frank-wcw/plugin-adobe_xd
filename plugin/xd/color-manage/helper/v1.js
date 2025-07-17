@@ -121,7 +121,7 @@ function sortColorNameList (colorNameList, {
   transformElement,
 } = {}) {
   // 提取編號部分，框出前面的 "xxx號色"
-  const regex = /^([A-z]+)(\d+):/
+  const regex = /^([A-z]+)(\d+)/
 
   return colorNameList.sort((a, b) => {
     const _a = transformElement ? transformElement(a) : a

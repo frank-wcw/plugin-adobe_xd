@@ -125,6 +125,8 @@ function transformObjToNameKey (obj, isToSimple = true) {
   return result
 }
 
+async function importAssetsColors() {}
+
 async function importOldAssetsColors(selection, documentRoot
 ) {
   const aFile = await fs.getFileForOpening({ types: ["json"] })
@@ -240,6 +242,34 @@ async function importOldAssetsColors(selection, documentRoot
   } catch (error) {
     showAlert(`元素顏色轉換時出現錯誤 (${error.message})`)
     console.error(error)
+  }
+}
+
+async function exportAssetsColors() {
+  /** @type {import('./type/common.d.ts').AssetsColor[]} */
+  const allAssetsColors = assets.colors.get()
+
+  if (!allAssetsColors.length) {
+    showAlert('assets 沒有任一顏色，請嘗試添加顏色以導出顏色配置')
+    return
+  }
+
+  const exportDataList = allAssetsColors.map(e => e.name)
+
+  const currentDate = new Date()
+  let filename = 'xd_assets_colors_'
+
+  filename += currentDate.getFullYear()
+  filename += (currentDate.getMonth() + 1).toString().padStart(2, '0')
+  filename += currentDate.getDate().toString().padStart(2, '0')
+
+  const file = await fs.getFileForSaving(`${filename}.json`)
+  if (file) {
+    const resultJsonString = JSON.stringify(sortColorNameList(exportDataList, {
+      transformElement: e => (e.match(/\[@N:([A-z0-9]+)]/) || [])[1] || ''
+    }), null, 2)
+
+    await file.write(resultJsonString)
   }
 }
 
@@ -823,7 +853,9 @@ module.exports = {
     copyOldUnoAssetsColors,
     copyUnoAssetsColors,
     transformOldAssetsColorsToPluginType,
+    importAssetsColors,
     importOldAssetsColors,
+    exportAssetsColors,
     exportOldAssetsColors,
     drawAssetsColors,
   },
