@@ -125,7 +125,130 @@ function transformObjToNameKey (obj, isToSimple = true) {
   return result
 }
 
-async function importAssetsColors() {}
+function allAssetsColorsWithMyType () {
+
+}
+
+async function importAssetsColors(selection, documentRoot) {
+  const aFile = await fs.getFileForOpening({ types: ["json"] })
+  if (!aFile) return
+
+  let nameList
+  try {
+    nameList = JSON.parse(await aFile.read())
+  } catch (error) {
+    showAlert(`導入的顏色檔有問題 (${error.message})`)
+    return
+  }
+
+  if (!nameList.length) {
+    showAlert('導入的顏色為空')
+    return
+  }
+
+  const { map , skipIdxList } = assetsColorsToColorInfoMap(nameList)
+
+  if (skipIdxList.length === nameList.length) {
+    showAlert('導入的顏色名稱全數不匹配')
+    return
+  }
+
+  const addColors = []
+  const deleteColors = []
+  // 匹配到相同的色號 <color 舊, color 新>
+  const sameColorMap = new Map()
+
+  try {
+    map.forEach(({
+      hex,
+      opacity,
+      colorStops,
+      gradientType,
+      name: colorName,
+      description
+    }) => {
+      // 純色
+      if (hex) {
+        let color
+        if (opacity) color = new Color(hex, opacity)
+        else color = new Color(hex)
+
+        const name = `${colorName}號色 ${toColorDescName(hex, opacity)} - ${description}`
+
+        const oldColor = allAssetsColors[colorName]
+        if (oldColor) {
+          let oldColorKey
+
+          if (oldColor.color instanceof Color) {
+            oldColorKey = colorToKey(oldColor.color)
+            if (colorToKey(color) === oldColorKey) return
+          } else {
+            oldColorKey = gradientLinearToKey(oldColor)
+          }
+
+          sameColorMap.set(oldColorKey, color)
+          deleteColors.push(oldColor)
+        }
+
+        addColors.push({
+          name,
+          color,
+        })
+      } else if (gradientType) {
+        const ascStopColorStops = colorStops.sort((a, b) => a.stop - b.stop)
+
+        const gradient = new LinearGradient()
+
+        gradient.colorStops = ascStopColorStops.map(({ stop, hex, opacity }) => ({
+          stop,
+          color: opacity != null ? new Color(hex, opacity) : new Color(hex),
+        }))
+
+        const name = `${colorName}號色 ${ascStopColorStops.map(e => toColorDescName(e.hex, e.opacity)).join(' - ')} - ${description}`
+
+        const oldColor = allAssetsColors[colorName]
+        if (oldColor) {
+          let oldColorKey
+
+          if (oldColor.color instanceof Color) {
+            oldColorKey = colorToKey(oldColor.color)
+          } else {
+            oldColorKey = gradientLinearToKey(oldColor)
+            if (gradientLinearToKey(gradient) === oldColorKey) return
+          }
+
+          sameColorMap.set(oldColorKey, gradient)
+          deleteColors.push(oldColor)
+        }
+
+        addColors.push({
+          name,
+          gradientType,
+          colorStops: gradient.colorStops,
+        })
+      }
+    })
+  } catch (error) {
+    showAlert(`顏色匹配過程出現錯誤 (${error.message})`)
+    console.error(error)
+    return
+  }
+
+  try {
+    recursiveUpdateChildColorByImport(documentRoot, sameColorMap)
+
+    deleteColors.forEach(color => {
+      assets.colors.delete(color)
+    })
+
+    if (addColors.length) {
+      showAlert(`已新增或調整了 ${assets.colors.add(addColors)} 筆色號`)
+    }
+  } catch (error) {
+    showAlert(`元素顏色轉換時出現錯誤 (${error.message})`)
+    console.error(error)
+  }
+}
 
 async function importOldAssetsColors(selection, documentRoot
 ) {
