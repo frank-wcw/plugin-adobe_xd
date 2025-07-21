@@ -13,6 +13,14 @@ export class Color {
   toRgba(): { r: number; g: number; b: number; a: number /* 0-255 */ }
 }
 
+export class LinearGradient {
+  colorStops: ColorStop[]
+}
+
+export class RadialGradient {
+  colorStops: ColorStop[]
+}
+
 export type ColorStop = {
   stop: number
   color: Color
@@ -50,12 +58,19 @@ export type MyColorStop = {
 
 // 轉化成 [@xxx:xxx] name 的 parse 後的 obj
 export type MyAssetColor = {
-  groupName: string
   groupSort: number
+  groupName: string
   name: string // 就是 colorName
+  color?: string // 轉換前才會有
+  gradientType?: GradientType // color 漸層會有
+  description: string
+
+  // 以下是不包含在 name 上的值
+  originName: string // 原名字 導入導出 string[] 的 string
+  originAssetColor?: AssetsColor
   hex?: string // color 純色會轉這
   opacity?: number // color 純色會有
-  gradientType?: GradientType // color 漸層會有
   colorStops?: MyColorStop[] // color 漸層會有
-  description: string
+  colorInstance?: Color
+  gradientInstance?: LinearGradient | RadialGradient
 }

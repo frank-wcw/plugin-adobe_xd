@@ -4,7 +4,7 @@
 const application = require("application")
 const assets = require('assets')
 const clipboard = require('clipboard')
-const { Color, LinearGradient, RadialGradient, Artboard, SymbolInstance } = require('scenegraph')
+const { Color, LinearGradient, RadialGradient, Artboard, SymbolInstance, Group } = require('scenegraph')
 const uxp = require('uxp')
 const fs = uxp.storage.localFileSystem
 const {
@@ -125,8 +125,31 @@ function transformObjToNameKey (obj, isToSimple = true) {
   return result
 }
 
-function allAssetsColorsWithMyType () {
+/**
+ * @param myAssetColor {import('./type/common.d.ts').MyAssetColor}
+ * @param index {number}
+ * @param originItem {import('./type/common.d.ts').AssetsColor | string}
+ */
+function mapToColorInstance (myAssetColor, index, originItem) {
+  if (myAssetColor == null) return
 
+  if (myAssetColor.hex) {
+    myAssetColor.colorInstance = myAssetColor.opacity
+      ? new Color(myAssetColor.hex, myAssetColor.opacity)
+      : new Color(myAssetColor.hex)
+  } else if (myAssetColor.gradientType) {
+    const Gradient = myAssetColor.gradientType === 'linear' ? LinearGradient : RadialGradient
+    const gradient = new Gradient()
+    gradient.colorStops = myAssetColor.colorStops.map(({ stop, hex, opacity }) => ({
+      stop,
+      color: opacity != null ? new Color(hex, opacity) : new Color(hex),
+    }))
+    myAssetColor.gradientInstance = gradient
+  }
+
+  if (typeof originItem === 'object') {
+    myAssetColor.originAssetColor = originItem
+  }
 }
 
 async function importAssetsColors(selection, documentRoot) {
@@ -146,84 +169,77 @@ async function importAssetsColors(selection, documentRoot) {
     return
   }
 
-  const { map , skipIdxList } = assetsColorsToColorInfoMap(nameList)
+  const { map: importAssetsColorsMap , skipIdxList } = assetsColorsToColorInfoMap(nameList, mapToColorInstance)
 
   if (skipIdxList.length === nameList.length) {
     showAlert('導入的顏色名稱全數不匹配')
     return
   }
 
+  const { map: allAssetsColorsMap } = assetsColorsToColorInfoMap(assets.colors.get(), mapToColorInstance)
+  /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const addColors = []
+  /** @type {import('./type/common.d.ts').AssetsColor[]} */
   const deleteColors = []
   // 匹配到相同的色號 <color 舊, color 新>
   const sameColorMap = new Map()
 
   try {
-    map.forEach(({
-      hex,
-      opacity,
-      colorStops,
-      gradientType,
-      name: colorName,
-      description
-    }) => {
+    importAssetsColorsMap.forEach((colorItem) => {
       // 純色
-      if (hex) {
-        let color
-        if (opacity) color = new Color(hex, opacity)
-        else color = new Color(hex)
+      if (colorItem.colorInstance) {
+        const oldColorItem = allAssetsColorsMap.get(colorItem.name)
 
-        const name = `${colorName}號色 ${toColorDescName(hex, opacity)} - ${description}`
-
-        const oldColor = allAssetsColors[colorName]
-        if (oldColor) {
+        if (oldColorItem) {
           let oldColorKey
 
-          if (oldColor.color instanceof Color) {
-            oldColorKey = colorToKey(oldColor.color)
-            if (colorToKey(color) === oldColorKey) return
-          } else {
-            oldColorKey = gradientLinearToKey(oldColor)
+          if (oldColorItem.colorInstance) {
+            oldColorKey = colorToKey(oldColorItem.colorInstance)
+            if (colorToKey(colorItem.colorInstance) === oldColorKey) return
+          } else if (oldColorItem.gradientInstance) {
+            oldColorKey = gradientLinearToKey(oldColorItem.gradientInstance)
           }
 
-          sameColorMap.set(oldColorKey, color)
-          deleteColors.push(oldColor)
+          if (oldColorKey) {
+            sameColorMap.set(oldColorKey, colorItem.colorInstance)
+            deleteColors.push(oldColorItem.originAssetColor)
+          }
         }
 
         addColors.push({
-          name,
-          color,
+          name: colorItem.originName,
+          color: colorItem.colorInstance,
         })
-      } else if (gradientType) {
-        const ascStopColorStops = colorStops.sort((a, b) => a.stop - b.stop)
+      } else if (colorItem.gradientInstance) {
+        const ascStopColorStops = colorItem.colorStops.sort((a, b) => a.stop - b.stop)
 
-        const gradient = new LinearGradient()
+        const gradient = new (colorItem.gradientType === 'linear' ? LinearGradient : RadialGradient)()
 
         gradient.colorStops = ascStopColorStops.map(({ stop, hex, opacity }) => ({
           stop,
           color: opacity != null ? new Color(hex, opacity) : new Color(hex),
         }))
 
-        const name = `${colorName}號色 ${ascStopColorStops.map(e => toColorDescName(e.hex, e.opacity)).join(' - ')} - ${description}`
-
-        const oldColor = allAssetsColors[colorName]
-        if (oldColor) {
+        const oldColorItem = allAssetsColorsMap.get(colorItem.name)
+        if (oldColorItem) {
           let oldColorKey
 
-          if (oldColor.color instanceof Color) {
-            oldColorKey = colorToKey(oldColor.color)
-          } else {
-            oldColorKey = gradientLinearToKey(oldColor)
+          if (oldColorItem.colorInstance) {
+            oldColorKey = colorToKey(oldColorItem.colorInstance)
+          } else if (oldColorItem.gradientInstance) {
+            oldColorKey = gradientLinearToKey(oldColorItem.gradientInstance)
             if (gradientLinearToKey(gradient) === oldColorKey) return
           }
 
-          sameColorMap.set(oldColorKey, gradient)
-          deleteColors.push(oldColor)
+          if (oldColorKey) {
+            sameColorMap.set(oldColorKey, gradient)
+            deleteColors.push(oldColorItem.originAssetColor)
+          }
         }
 
         addColors.push({
-          name,
-          gradientType,
+          name: colorItem.originName,
+          gradientType: colorItem.gradientType,
           colorStops: gradient.colorStops,
         })
       }
@@ -235,14 +251,26 @@ async function importAssetsColors(selection, documentRoot) {
   }
 
   try {
-    recursiveUpdateChildColorByImport(documentRoot, sameColorMap)
+    if (addColors.length || deleteColors.length) {
+      recursiveUpdateChildColorByImport(documentRoot, sameColorMap)
 
-    deleteColors.forEach(color => {
-      assets.colors.delete(color)
-    })
+      deleteColors.forEach(color => {
+        assets.colors.delete(color)
+      })
 
-    if (addColors.length) {
-      showAlert(`已新增或調整了 ${assets.colors.add(addColors)} 筆色號`)
+      if (addColors.length) {
+        const addLength = assets.colors.add(addColors)
+
+        if (addLength) {
+          showAlert(`已新增了 ${addColors.length} 筆顏色${deleteColors.length > 0 ? `，並調整了 ${deleteColors.length} 筆顏色` : ''}`)
+        } else if (deleteColors.length > 0) {
+          showAlert(`調整了 ${deleteColors.length} 筆顏色`)
+        }
+      } else if (deleteColors.length) {
+        showAlert(`調整了 ${deleteColors.length} 筆顏色`)
+      }
+    } else {
+      showAlert('未新增或調整任一筆顏色')
     }
   } catch (error) {
     showAlert(`元素顏色轉換時出現錯誤 (${error.message})`)
@@ -459,9 +487,21 @@ async function exportOldAssetsColors () {
   }
 }
 
+function getAllProperties(obj) {
+  const props = new Set();
+  let currentObj = obj;
+
+  do {
+    Object.getOwnPropertyNames(currentObj).forEach(name => props.add(name));
+  } while ((currentObj = Object.getPrototypeOf(currentObj)) &&
+  currentObj !== Object.prototype);
+
+  return [...props];
+}
+
 function recursiveUpdateChildColorByImport (node, sameColorMap) {
   node.children.forEach(e => {
-    if (e instanceof SymbolInstance) return
+    if (e instanceof SymbolInstance || e.mask) return
     if (e.isContainer) return recursiveUpdateChildColorByImport(e, sameColorMap)
 
     if (e.fill != null) {
@@ -477,6 +517,7 @@ function recursiveUpdateChildColorByImport (node, sameColorMap) {
             const newGradient = e.fill.clone()
             newGradient.colorStops = newColor.colorStops
             e.fill = newGradient
+            console.log(e.name)
           }
         }
       }
@@ -494,8 +535,9 @@ function recursiveUpdateChildColorByImport (node, sameColorMap) {
 }
 
 /**
- * @param nameList {string[]|{name:string}[]}
- * @param tap {(el: import('./type/common.d.ts').MyAssetColor | null, i: number) => void}
+ * @template T extends (string | { name: string })
+ * @param nameList {T[]}
+ * @param [tap] {(el: import('./type/common.d.ts').MyAssetColor | null, i: number, originEl: T) => void}
  * @returns {{map: Map<string, import('./type/common.d.ts').MyAssetColor>, skipIdxList: number[]}}
  */
 function assetsColorsToColorInfoMap (nameList, tap) {
@@ -507,13 +549,15 @@ function assetsColorsToColorInfoMap (nameList, tap) {
 
     if (!name) {
       skipIdxList.push(i)
-      tap?.(null, i)
+      tap?.(null, i, e)
       return
     }
 
     /** @desc 類型會有為落差，懶得申明主要是 color 哈
      * @type {import('./type/common.d.ts').MyAssetColor} */
-    const kvMap = {}
+    const kvMap = {
+      originName: name,
+    }
     let sbBeginIdx = -1 // [
     let keyBeginIdx = sbBeginIdx // @x
     let keyEndIdx = sbBeginIdx // x:
@@ -563,7 +607,7 @@ function assetsColorsToColorInfoMap (nameList, tap) {
           if (opacity != null) result.opacity = Number(opacity) / 100
 
           return result
-        }).filter(e => e)
+        }).filter(e => e).sort((a, b) => a.stop - b.stop)
 
         if (!kvMap.colorStops.length) {
           console.warn(`略過了【${kvMap.name}】，漸層色的配置有問題 ${kvMap.color}`)
@@ -589,11 +633,11 @@ function assetsColorsToColorInfoMap (nameList, tap) {
         colorInfoMap.set(kvMap.name, kvMap)
       }
 
-      tap?.(kvMap, i)
+      tap?.(kvMap, i, e)
     } else {
       console.warn(`略過了【${name}】，匹配不到 key-name 或是 key-color`)
       skipIdxList.push(i)
-      tap?.(null, i)
+      tap?.(null, i, e)
     }
   })
 
