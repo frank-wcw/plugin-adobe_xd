@@ -3,10 +3,14 @@ import ElementPlusTable from './component/element-plus/table.vue'
 import ElementPlusTableTsx from './component/element-plus/table.tsx'
 import NaiveUiTable from './component/naive-ui/table.vue'
 import NaiveUiTableTsx from './component/naive-ui/table.tsx'
+import NanostoresCounter from './component/nanostores-counter/counter.vue'
 import { NMessageProvider, NConfigProvider } from 'naive-ui'
 </script>
 
 <template>
+  <div>nanostores-counter counter.vue</div>
+  <NanostoresCounter />
+  <hr>
   <div>element-plus table.vue</div>
   <ElementPlusTable />
   <hr>
