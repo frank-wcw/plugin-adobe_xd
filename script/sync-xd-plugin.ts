@@ -33,8 +33,8 @@ const argv = yargs(process.argv.slice(2))
 
 const { dir, proj: projectName, watch: isWatch } = argv
 
-const relativePluginXdPath = 'plugin/xd'
-const helperName = 'fwxp-helper'
+const relativePluginXdPath = 'src'
+const helperName = '__helper__'
 const relativeProjectPath = `${relativePluginXdPath}/${projectName}`
 const relativeHelperPath = `${relativePluginXdPath}/${helperName}`
 const pluginXdPath = path.join(cwd, relativePluginXdPath)
@@ -75,17 +75,24 @@ async function run () {
   }
 }
 
-function copyProjectToXdPluginDir () {
-  return Promise.all([
+async function copyProjectToXdPluginDir () {
+  const projectHelperPath = path.join(relativeProjectPath, 'helper')
+
+  await Promise.all([
     fse.copy(projectPath, xdPluginDir, {
       overwrite: true,
       errorOnExist: false,
     }),
-    fse.copy(relativeHelperPath, path.join(relativeProjectPath, 'helper'), {
+    fse.copy(relativeHelperPath, projectHelperPath, {
       overwrite: true,
       errorOnExist: false,
     }),
   ])
+
+  const helperGitIgnorePath = path.join(projectHelperPath, '.gitignore')
+  if (!fse.existsSync(helperGitIgnorePath)) {
+    fse.writeFileSync(helperGitIgnorePath, '*')
+  }
 }
 
 async function copyFileToXdPluginDir (relativeFilepath: string) {

@@ -1,36 +1,33 @@
 {
-  "name": "@work-tools-app/monorepo",
+  "name": "plugin-adobe_xd",
   "type": "module",
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@10.12.3",
   "scripts": {
-    "dev:playground-vite-vanillajs": "pnpm -r --filter vite-vanillajs dev",
-    "dev:playground-vite-vue3-ts": "pnpm -r --filter vite-vue3-ts dev",
-    "dev:playground-vite-hono-react-ts": "pnpm -r --filter vite-hono-react-ts dev",
-    "build:all": "pnpm -r --parallel build",
-    "script:sync-xd-plugin": "tsx ./script/sync-xd-plugin.ts --watch --proj color-manage --dir"
+    "script:sync-xd-plugin": "tsx ./script/sync-xd-plugin.ts --watch --proj color-manage --dir C:\\Users\\COSH\\Desktop"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/frank-wcw/work-tools-app.git"
+    "url": "git+https://github.com/frank-wcw/plugin-adobe_xd.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/frank-wcw/work-tools-app/issues"
+    "url": "https://github.com/frank-wcw/plugin-adobe_xd/issues"
   },
-  "homepage": "https://github.com/frank-wcw/work-tools-app#readme",
+  "homepage": "https://github.com/frank-wcw/plugin-adobe_xd#readme",
   "description": "",
   "devDependencies": {
-    "@types/fs-extra": "catalog:",
-    "@types/node": "catalog:",
-    "@types/yargs": "catalog:",
-    "chokidar": "catalog:",
-    "fs-extra": "catalog:",
-    "tsx": "catalog:",
-    "unbuild": "catalog:",
-    "yargs": "catalog:"
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^24.1.0",
+    "@types/yargs": "^17.0.33",
+    "tsx": "^4.20.3"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "fs-extra": "^11.3.0",
+    "yargs": "^18.0.0"
   }
 }
