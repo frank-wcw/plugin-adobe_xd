@@ -4,19 +4,10 @@
 const application = require("application")
 const assets = require('assets')
 const clipboard = require('clipboard')
-const { Color, LinearGradient, RadialGradient, Artboard, SymbolInstance, Group } = require('scenegraph')
+const scenegraph = require('scenegraph')
 const uxp = require('uxp')
 const fs = uxp.storage.localFileSystem
-const {
-  showAlert,
-  sortColorNameList,
-  stringify,
-  alphaToPercentage,
-  shouldUseBlackText,
-  shouldUseBlackTextForGradient,
-  createValueStorage,
-  updateVueStorageData,
-} = require('./helper/v1')
+const helper = require('./helper/v1')
 
 const simpleToComplexNameKeyMap = new Map()
 const complexToSimpleNameKeyMap = new Map()
@@ -57,7 +48,7 @@ function transformOldAssetsColorsToPluginType () {
   const allAssetsColors = assets.colors.get()
 
   if (!allAssetsColors.length) {
-    showAlert('assets 沒有任一顏色，請嘗試添加顏色以轉換顏色配置')
+    helper.showAlert('assets 沒有任一顏色，請嘗試添加顏色以轉換顏色配置')
     return
   }
 
@@ -82,11 +73,11 @@ function transformOldAssetsColorsToPluginType () {
       nameKeyObj.gradientType = e.gradientType
       nameKeyObj.color = e.colorStops.map(f => {
         const hex = f.color.toHex(true)
-        return `${hex}${f.color.a === 0 ? '(0%)' : f.color.a < 255 ? `(${alphaToPercentage(f.color.a)}%)` : ''} ${f.stop}`
+        return `${hex}${f.color.a === 0 ? '(0%)' : f.color.a < 255 ? `(${helper.alphaToPercentage(f.color.a)}%)` : ''} ${f.stop}`
       }).join('-')
     } else {
       const hex = e.color.toHex(true)
-      nameKeyObj.color = `${hex}${e.color.a === 0 ? '(0%)' : e.color.a < 255 ? `(${alphaToPercentage(e.color.a)}%)` : ''}`
+      nameKeyObj.color = `${hex}${e.color.a === 0 ? '(0%)' : e.color.a < 255 ? `(${helper.alphaToPercentage(e.color.a)}%)` : ''}`
     }
 
     changeColorList.push({
@@ -101,7 +92,7 @@ function transformOldAssetsColorsToPluginType () {
   if (noMatchNameList.length) {
     const max = 10
     const isExtraMax = noMatchNameList.length > max
-    showAlert(`${noMatchNameList.slice(0, max).join('\n')}\n${isExtraMax ? `...等${noMatchNameList.length - max}筆\n` : ''}這些顏色匹配格式失敗，請自行編輯後重新嘗試`)
+    helper.showAlert(`${noMatchNameList.slice(0, max).join('\n')}\n${isExtraMax ? `...等${noMatchNameList.length - max}筆\n` : ''}這些顏色匹配格式失敗，請自行編輯後重新嘗試`)
     return
   }
 
@@ -135,14 +126,14 @@ function mapToColorInstance (myAssetColor, index, originItem) {
 
   if (myAssetColor.hex) {
     myAssetColor.colorInstance = myAssetColor.opacity
-      ? new Color(myAssetColor.hex, myAssetColor.opacity)
-      : new Color(myAssetColor.hex)
+      ? new scenegraph.Color(myAssetColor.hex, myAssetColor.opacity)
+      : new scenegraph.Color(myAssetColor.hex)
   } else if (myAssetColor.gradientType) {
-    const Gradient = myAssetColor.gradientType === 'linear' ? LinearGradient : RadialGradient
+    const Gradient = myAssetColor.gradientType === 'linear' ? scenegraph.LinearGradient : scenegraph.RadialGradient
     const gradient = new Gradient()
     gradient.colorStops = myAssetColor.colorStops.map(({ stop, hex, opacity }) => ({
       stop,
-      color: opacity != null ? new Color(hex, opacity) : new Color(hex),
+      color: opacity != null ? new scenegraph.Color(hex, opacity) : new scenegraph.Color(hex),
     }))
     myAssetColor.gradientInstance = gradient
   }
@@ -160,19 +151,19 @@ async function importAssetsColors(selection, documentRoot) {
   try {
     nameList = JSON.parse(await aFile.read())
   } catch (error) {
-    showAlert(`導入的顏色檔有問題 (${error.message})`)
+    helper.showAlert(`導入的顏色檔有問題 (${error.message})`)
     return
   }
 
   if (!nameList.length) {
-    showAlert('導入的顏色為空')
+    helper.showAlert('導入的顏色為空')
     return
   }
 
   const { map: importAssetsColorsMap , skipIdxList } = assetsColorsToColorInfoMap(nameList, mapToColorInstance)
 
   if (skipIdxList.length === nameList.length) {
-    showAlert('導入的顏色名稱全數不匹配')
+    helper.showAlert('導入的顏色名稱全數不匹配')
     return
   }
 
@@ -213,11 +204,11 @@ async function importAssetsColors(selection, documentRoot) {
       } else if (colorItem.gradientInstance) {
         const ascStopColorStops = colorItem.colorStops.sort((a, b) => a.stop - b.stop)
 
-        const gradient = new (colorItem.gradientType === 'linear' ? LinearGradient : RadialGradient)()
+        const gradient = new (colorItem.gradientType === 'linear' ? scenegraph.LinearGradient : scenegraph.RadialGradient)()
 
         gradient.colorStops = ascStopColorStops.map(({ stop, hex, opacity }) => ({
           stop,
-          color: opacity != null ? new Color(hex, opacity) : new Color(hex),
+          color: opacity != null ? new scenegraph.Color(hex, opacity) : new scenegraph.Color(hex),
         }))
 
         const oldColorItem = allAssetsColorsMap.get(colorItem.name)
@@ -245,7 +236,7 @@ async function importAssetsColors(selection, documentRoot) {
       }
     })
   } catch (error) {
-    showAlert(`顏色匹配過程出現錯誤 (${error.message})`)
+    helper.showAlert(`顏色匹配過程出現錯誤 (${error.message})`)
     console.error(error)
     return
   }
@@ -262,18 +253,18 @@ async function importAssetsColors(selection, documentRoot) {
         const addLength = assets.colors.add(addColors)
 
         if (addLength) {
-          showAlert(`已新增了 ${addColors.length} 筆顏色${deleteColors.length > 0 ? `，並調整了 ${deleteColors.length} 筆顏色` : ''}`)
+          helper.showAlert(`已新增了 ${addColors.length} 筆顏色${deleteColors.length > 0 ? `，並調整了 ${deleteColors.length} 筆顏色` : ''}`)
         } else if (deleteColors.length > 0) {
-          showAlert(`調整了 ${deleteColors.length} 筆顏色`)
+          helper.showAlert(`調整了 ${deleteColors.length} 筆顏色`)
         }
       } else if (deleteColors.length) {
-        showAlert(`調整了 ${deleteColors.length} 筆顏色`)
+        helper.showAlert(`調整了 ${deleteColors.length} 筆顏色`)
       }
     } else {
-      showAlert('未新增或調整任一筆顏色')
+      helper.showAlert('未新增或調整任一筆顏色')
     }
   } catch (error) {
-    showAlert(`元素顏色轉換時出現錯誤 (${error.message})`)
+    helper.showAlert(`元素顏色轉換時出現錯誤 (${error.message})`)
     console.error(error)
   }
 }
@@ -287,7 +278,7 @@ async function importOldAssetsColors(selection, documentRoot
   try {
     config = JSON.parse(await aFile.read())
   } catch (error) {
-    showAlert(`導入的顏色檔有問題 (${error.message})`)
+    helper.showAlert(`導入的顏色檔有問題 (${error.message})`)
     return
   }
 
@@ -316,8 +307,8 @@ async function importOldAssetsColors(selection, documentRoot
       // 純色
       if (hex) {
         let color
-        if (opacity) color = new Color(hex, opacity)
-        else color = new Color(hex)
+        if (opacity) color = new scenegraph.Color(hex, opacity)
+        else color = new scenegraph.Color(hex)
 
         const name = `${colorName}號色 ${toColorDescName(hex, opacity)} - ${description}`
 
@@ -325,7 +316,7 @@ async function importOldAssetsColors(selection, documentRoot
         if (oldColor) {
           let oldColorKey
 
-          if (oldColor.color instanceof Color) {
+          if (oldColor.color instanceof scenegraph.Color) {
             oldColorKey = colorToKey(oldColor.color)
             if (colorToKey(color) === oldColorKey) continue
           } else {
@@ -343,11 +334,11 @@ async function importOldAssetsColors(selection, documentRoot
       } else if (gradientType) {
         const ascStopColorStops = colorStops.sort((a, b) => a.stop - b.stop)
 
-        const gradient = new LinearGradient()
+        const gradient = new scenegraph.LinearGradient()
 
         gradient.colorStops = ascStopColorStops.map(({ stop, hex, opacity }) => ({
           stop,
-          color: opacity != null ? new Color(hex, opacity) : new Color(hex),
+          color: opacity != null ? new scenegraph.Color(hex, opacity) : new scenegraph.Color(hex),
         }))
 
         const name = `${colorName}號色 ${ascStopColorStops.map(e => toColorDescName(e.hex, e.opacity)).join(' - ')} - ${description}`
@@ -356,7 +347,7 @@ async function importOldAssetsColors(selection, documentRoot
         if (oldColor) {
           let oldColorKey
 
-          if (oldColor.color instanceof Color) {
+          if (oldColor.color instanceof scenegraph.Color) {
             oldColorKey = colorToKey(oldColor.color)
           } else {
             oldColorKey = gradientLinearToKey(oldColor)
@@ -375,7 +366,7 @@ async function importOldAssetsColors(selection, documentRoot
       }
     }
   } catch (error) {
-    showAlert(`顏色匹配過程出現錯誤 (${error.message})`)
+    helper.showAlert(`顏色匹配過程出現錯誤 (${error.message})`)
     console.error(error)
     return
   }
@@ -388,10 +379,10 @@ async function importOldAssetsColors(selection, documentRoot
     })
 
     if (addColors.length) {
-      showAlert(`已新增或調整了 ${assets.colors.add(addColors)} 筆色號`)
+      helper.showAlert(`已新增或調整了 ${assets.colors.add(addColors)} 筆色號`)
     }
   } catch (error) {
-    showAlert(`元素顏色轉換時出現錯誤 (${error.message})`)
+    helper.showAlert(`元素顏色轉換時出現錯誤 (${error.message})`)
     console.error(error)
   }
 }
@@ -401,7 +392,7 @@ async function exportAssetsColors() {
   const allAssetsColors = assets.colors.get()
 
   if (!allAssetsColors.length) {
-    showAlert('assets 沒有任一顏色，請嘗試添加顏色以導出顏色配置')
+    helper.showAlert('assets 沒有任一顏色，請嘗試添加顏色以導出顏色配置')
     return
   }
 
@@ -416,7 +407,7 @@ async function exportAssetsColors() {
 
   const file = await fs.getFileForSaving(`${filename}.json`)
   if (file) {
-    const resultJsonString = JSON.stringify(sortColorNameList(exportDataList, {
+    const resultJsonString = JSON.stringify(helper.sortColorNameList(exportDataList, {
       transformElement: e => (e.match(/\[@N:([A-z0-9]+)]/) || [])[1] || ''
     }), null, 2)
 
@@ -429,7 +420,7 @@ async function exportOldAssetsColors () {
   const allAssetsColors = assets.colors.get()
 
   if (!allAssetsColors.length) {
-    showAlert('assets 沒有任一顏色，請嘗試添加顏色以導出顏色配置')
+    helper.showAlert('assets 沒有任一顏色，請嘗試添加顏色以導出顏色配置')
     return
   }
 
@@ -441,13 +432,13 @@ async function exportOldAssetsColors () {
 
     const description = desc || afterText || e.name
 
-    if (e.color instanceof Color) {
+    if (e.color instanceof scenegraph.Color) {
       const data = {
         colorName,
         description,
         hex: e.color.toHex(true),
       }
-      if (e.color.a && e.color.a !== 255) data.opacity = alphaToPercentage(e.color.a) / 100
+      if (e.color.a && e.color.a !== 255) data.opacity = helper.alphaToPercentage(e.color.a) / 100
       exportDataList.push(data)
     } else if (e.gradientType) {
       const data = {
@@ -459,7 +450,7 @@ async function exportOldAssetsColors () {
             stop: f.stop,
             hex: f.color.toHex(true),
           }
-          if (f.color.a && f.color.a !== 255) color.opacity = alphaToPercentage(f.color.a) / 100
+          if (f.color.a && f.color.a !== 255) color.opacity = helper.alphaToPercentage(f.color.a) / 100
           return color
         })
       }
@@ -476,7 +467,7 @@ async function exportOldAssetsColors () {
 
   const file = await fs.getFileForSaving(`${filename}.json`)
   if (file) {
-    const resultJsonString = stringify(sortColorNameList(exportDataList, {
+    const resultJsonString = helper.stringify(helper.sortColorNameList(exportDataList, {
       transformElement: e => e.colorName
     }).reduce((p, { colorName, ...other }) => {
       p[colorName] = other
@@ -501,30 +492,35 @@ function getAllProperties(obj) {
 
 function recursiveUpdateChildColorByImport (node, sameColorMap) {
   node.children.forEach(e => {
-    if (e instanceof SymbolInstance || e.mask) return
+    if (e instanceof scenegraph.SymbolInstance || e.mask) return
     if (e.isContainer) return recursiveUpdateChildColorByImport(e, sameColorMap)
 
+    // if (e instanceof scenegraph.LinkedGraphic || e instanceof scenegraph.SymbolInstance || e instanceof scenegraph.BooleanGroup || e instanceof scenegraph.Group) {
+    //   recursiveUpdateChildColorByImport(e, sameColorMap)
+    //   return
+    // }
+
+
     if (e.fill != null) {
-      if (e.fill instanceof Color) {
+      if (e.fill instanceof scenegraph.Color) {
         const newColor = sameColorMap.get(colorToKey(e.fill))
         if (newColor) e.fill = newColor
-      } else if (e.fill instanceof LinearGradient || e.fill instanceof RadialGradient) {
+      } else if (e.fill instanceof scenegraph.LinearGradient || e.fill instanceof scenegraph.RadialGradient) {
         const newColor = sameColorMap.get(gradientLinearToKey(e.fill))
         if (newColor) {
-          if (newColor instanceof Color) {
+          if (newColor instanceof scenegraph.Color) {
             e.fill = newColor
           } else {
             const newGradient = e.fill.clone()
             newGradient.colorStops = newColor.colorStops
             e.fill = newGradient
-            console.log(e.name)
           }
         }
       }
     }
 
     if (e.stroke != null) {
-      if (e.stroke instanceof Color) {
+      if (e.stroke instanceof scenegraph.Color) {
         const newColor = sameColorMap.get(colorToKey(e.stroke))
         if (newColor) e.stroke = newColor
       }
@@ -664,7 +660,7 @@ function copyOldUnoAssetsColors() {
   const allAssetsColors = assets.colors.get()
 
   if (!allAssetsColors.length) {
-    showAlert('assets 沒有任一顏色，嘗試添加顏色以嘗試複製功能')
+    helper.showAlert('assets 沒有任一顏色，嘗試添加顏色以嘗試複製功能')
     return
   }
 
@@ -690,17 +686,17 @@ function copyOldUnoAssetsColors() {
   })
 
   if (!copyTextList.length) {
-    showAlert('未匹配到任何可以複製的顏色！')
+    helper.showAlert('未匹配到任何可以複製的顏色！')
     return
   }
 
-  const colorText = sortColorNameList(copyTextList).join('\n  ')
+  const colorText = helper.sortColorNameList(copyTextList).join('\n  ')
 
   clipboard.copyText(`{
   ${colorText}
 }`)
 
-  showAlert('顏色已成功複製到剪貼簿！')
+  helper.showAlert('顏色已成功複製到剪貼簿！')
 }
 
 function copyUnoAssetsColors() {
@@ -708,7 +704,7 @@ function copyUnoAssetsColors() {
   const allAssetsColors = assets.colors.get()
 
   if (!allAssetsColors.length) {
-    showAlert('assets 沒有任一顏色，嘗試添加顏色以嘗試複製功能')
+    helper.showAlert('assets 沒有任一顏色，嘗試添加顏色以嘗試複製功能')
     return
   }
 
@@ -727,23 +723,23 @@ function copyUnoAssetsColors() {
   })
 
   if (!copyTextList.length) {
-    showAlert('未匹配到任何可以複製的顏色！')
+    helper.showAlert('未匹配到任何可以複製的顏色！')
     return
   }
 
-  const colorText = sortColorNameList(copyTextList).join('\n  ')
+  const colorText = helper.sortColorNameList(copyTextList).join('\n  ')
 
   clipboard.copyText(`{
   ${colorText}
 }`)
 
-  showAlert(`顏色共${allAssetsColors.length}筆已成功複製到剪貼簿！${skipIdxList.length ? `(但略過了${skipIdxList.length}筆色號未成功複製)` : ''}`)
+  helper.showAlert(`顏色共${allAssetsColors.length}筆已成功複製到剪貼簿！${skipIdxList.length ? `(但略過了${skipIdxList.length}筆色號未成功複製)` : ''}`)
 }
 
 function toOldUnoColorValue (color) {
   const hexColor = color.toHex(true)
   if (color.a == null || color.a === 255) return `'${hexColor}'`
-  return `rgba('${hexColor}', ${alphaToPercentage(color.a) / 100})`
+  return `rgba('${hexColor}', ${helper.alphaToPercentage(color.a) / 100})`
 }
 
 /**
@@ -764,11 +760,11 @@ function drawAssetsColors (selection, documentRoot) {
     if (y < minY) minY = y
   })
 
-  const artboard = new Artboard()
+  const artboard = new scenegraph.Artboard()
   let width = 500, height = 500
 
   artboard.name = '色塊圖'
-  artboard.fill = new Color('#ffffff')
+  artboard.fill = new scenegraph.Color('#ffffff')
   artboard.moveInParentCoordinates(minX - space - width, minY)
   artboard.width = width
   artboard.height = height
@@ -780,7 +776,7 @@ let configPanelDom, configPanelApp
 let _ddd
 function showPanelConfig (event) {
   /** @type {import('./type/common.d.ts').AssetsColor[]} */
-  const allAssetsColors = sortColorNameList(assets.colors.get(), {
+  const allAssetsColors = helper.sortColorNameList(assets.colors.get(), {
     transformElement: e => e.name || 'a00', // !name 就名字隨意讓裡面取得到職判斷就好
   })
   /** @desc key 為 colorName */
@@ -801,13 +797,13 @@ function showPanelConfig (event) {
 
     const [, colorName] = name?.match(/^([A-z]+\d+).*$/) || []
     if (!colorName) return
-    if (color instanceof Color) {
+    if (color instanceof scenegraph.Color) {
       const { r, g, b, a } = color.toRgba()
-      const percentAlpha = alphaToPercentage(a) / 100
+      const percentAlpha = helper.alphaToPercentage(a) / 100
       allAssetsColorsMap.set(colorName, {
         colorName,
         origin: e,
-        isLightColor: shouldUseBlackText(r, g, b, percentAlpha),
+        isLightColor: helper.shouldUseBlackText(r, g, b, percentAlpha),
         colorCss: `rgba(${r}, ${g}, ${b}, ${percentAlpha})`,
       })
     } else if (gradientType) {
@@ -816,7 +812,7 @@ function showPanelConfig (event) {
 
       colorStops.forEach(({ stop, color }) => {
         const percentAlphaColor = color.toRgba()
-        const percentAlpha = alphaToPercentage(percentAlphaColor.a)
+        const percentAlpha = helper.alphaToPercentage(percentAlphaColor.a)
         percentAlphaColor.a = percentAlpha / 100
 
         isLightColorCheckGradientStops.push({
@@ -830,7 +826,7 @@ function showPanelConfig (event) {
       allAssetsColorsMap.set(colorName, {
         colorName,
         origin: e,
-        isLightColor: shouldUseBlackTextForGradient(isLightColorCheckGradientStops),
+        isLightColor: helper.shouldUseBlackTextForGradient(isLightColorCheckGradientStops),
         colorCss: colorCss + ')',
         gradientType,
       })
@@ -855,7 +851,7 @@ function showPanelConfig (event) {
 
   const storageName = name => `${documentGuid}_config_panel_${name}`
   const storage = {
-    groupList: createValueStorage(storageName('group_list_v5'), defaultGroupList),
+    groupList: helper.createValueStorage(storageName('group_list_v5'), defaultGroupList),
   }
   const vueData = {
     /** @type {import('./type/common.d.ts').SelectedXdItem[]} */
@@ -936,7 +932,7 @@ function showPanelConfig (event) {
                 if (!(event.key === 'Enter' || event.keyCode === 13)) return
 
                 if (vm.groupList.some(e => e.name === vm.inputGroupName)) {
-                  showAlert('已存在該群組，請嘗試替換其他群組名')
+                  helper.showAlert('已存在該群組，請嘗試替換其他群組名')
                   return
                 }
 
@@ -947,7 +943,7 @@ function showPanelConfig (event) {
                     colorNameList: [],
                   },
                 ]
-                updateVueStorageData(vm, storage, 'groupList', newGroupList)
+                helper.updateVueStorageData(vm, storage, 'groupList', newGroupList)
                 vm.isCreatingGroup = false
                 vm.inputGroupName = ''
               },
